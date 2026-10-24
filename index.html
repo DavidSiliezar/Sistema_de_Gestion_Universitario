@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>UniControl (Sistema de gestión universitario)</title>
 
-  <link rel="icon" type="image/png" href="images.png" />
+  <link rel="icon" type="image/png" href="assets/img/images.png" />
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
 
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -23,7 +23,7 @@
       <div class="brand-header">
         <div class="brand-identity">
           <div class="brand-emblem" title="UniControl (Sistema de gestión universitario)">
-            <img src="images.png" alt="UniControl" onerror="this.style.display='none'; this.parentElement.textContent='UC';" />
+            <img src="assets/img/images.png" alt="UniControl" onerror="this.style.display='none'; this.parentElement.textContent='UC';" />
           </div>
           <div class="brand-text">
             <div class="brand-title">UniControl</div>
@@ -241,8 +241,10 @@
                 </div>
                 <span class="code-chip">PRODUCTOS.xlsx</span>
               </div>
-              <div class="panel-body" style="height:310px">
-                <canvas id="chart-landed-cost"></canvas>
+              <div class="panel-body chart-panel-body">
+                <div class="chart-canvas-container">
+                  <canvas id="chart-landed-cost"></canvas>
+                </div>
               </div>
             </div>
 
@@ -254,8 +256,10 @@
                 </div>
                 <span class="code-chip">Modelo EOQ / IA</span>
               </div>
-              <div class="panel-body" style="height:310px">
-                <canvas id="chart-stock-health"></canvas>
+              <div class="panel-body chart-panel-body">
+                <div class="chart-canvas-container">
+                  <canvas id="chart-stock-health"></canvas>
+                </div>
               </div>
             </div>
           </div>
@@ -616,7 +620,7 @@
                   </div>
                 </div>
 
-                <div style="height:200px; width:100%; margin-top:8px">
+                <div class="chart-canvas-container" style="height:205px; width:100%; margin-top:8px">
                   <canvas id="chart-supplier-radar"></canvas>
                 </div>
               </div>

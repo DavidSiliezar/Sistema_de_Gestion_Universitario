@@ -103,9 +103,10 @@ function Normalize-Text {
 }
 
 Write-Host "1. Leyendo los 3 libros de Excel..." -ForegroundColor Cyan
-$rawProductos   = Read-ExcelTable (Join-Path $rootDir "PRODUCTOS.xlsx")
-$rawProveedores = Read-ExcelTable (Join-Path $rootDir "PROVEEDORES_COMPLETO_V2 (1).xlsx")
-$rawFacturacion = Read-ExcelTable (Join-Path $rootDir "FACTURACION.xlsx")
+$excelDir = Join-Path $rootDir "data\excel"
+$rawProductos   = Read-ExcelTable (Join-Path $excelDir "PRODUCTOS.xlsx")
+$rawProveedores = Read-ExcelTable (Join-Path $excelDir "PROVEEDORES_COMPLETO_V2 (1).xlsx")
+$rawFacturacion = Read-ExcelTable (Join-Path $excelDir "FACTURACION.xlsx")
 
 Write-Host "   -> PRODUCTOS.xlsx: $($rawProductos.Count) registros leidos"
 Write-Host "   -> PROVEEDORES_COMPLETO_V2 (1).xlsx: $($rawProveedores.Count) registros leidos"
