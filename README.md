@@ -1,6 +1,6 @@
-# TORQUE-SQL // Sistema Inteligente de Abastecimiento Automotriz & Motor Relacional FK
+# UniControl (Sistema de gestión universitario)
 
-Plataforma de ingeniería de compras, inventario valorizado (*Landed Cost*) e inteligencia artificial predictiva diseñada para optimizar el proceso de abastecimiento de accesorios automotrices a partir de **3 libros de Excel independientes**.
+Plataforma integral de gestión universitaria, abastecimiento inteligente, inventario valorizado (*Landed Cost*) y motor relacional SQL con inteligencia artificial predictiva a partir de **3 libros de Excel independientes**.
 
 ---
 
@@ -14,15 +14,15 @@ idea_Proyecto/
 │   ├── css/styles.css                # Sistema de diseño táctico Carbon & Amber Telemetry
 │   └── js/app.js                     # Motor relacional SQLite WASM + SheetJS + Simulador IA + SweetAlert2
 ├── backend/
-│   └── motor_relacional_web.js       # Módulo portátil de resolución automática de Foreign Keys e IA
+│   └── motor_relacional_web.js       # Módulo portátil de vinculación automática de relaciones e IA
 ├── database/
-│   ├── schema.sql                    # Esquema relacional DDL (6 tablas + 3 vistas analíticas + FKs estrictas)
+│   ├── schema.sql                    # Esquema relacional DDL (6 tablas + 3 vistas analíticas + relaciones estrictas)
 │   ├── seed_data.sql                 # Datos relacionales generados automáticamente desde los 3 libros Excel
-│   ├── inventario_compras.db         # Base de datos binaria SQLite3 verificada (0 violaciones de FK)
+│   ├── inventario_compras.db         # Base de datos binaria SQLite3 verificada (0 inconsistencias de relación)
 │   └── dataset_relacional.json       # Estado sincronizado de las tablas y relaciones
 ├── scripts/
-│   ├── motor_ingesta_y_ia.ps1        # Pipeline local de lectura Excel -> SQL + Auto-Curación de FKs
-│   └── verificar_bd_sql.ps1          # Auditoría SQLite (PRAGMA foreign_key_check)
+│   ├── motor_ingesta_y_ia.ps1        # Pipeline local de lectura Excel -> SQL + Auto-Curación de relaciones
+│   └── verificar_bd_sql.ps1          # Auditoría SQLite de integridad referencial
 ├── PRODUCTOS.xlsx                    # Libro 1: Catálogo e inventario con costos de importación
 ├── PROVEEDORES_COMPLETO_V2 (1).xlsx  # Libro 2: Directorio de proveedores internacionales
 └── FACTURACION.xlsx                  # Libro 3: Facturas comerciales, cotizaciones y órdenes de pedido
@@ -32,9 +32,9 @@ idea_Proyecto/
 
 ## Características Principales
 
-1. **Resolución Automática y Auto-Curación de Llaves Foráneas (`FK Auto-Heal`):**
-   - Vincula automáticamente los nombres y descripciones de `FACTURACION.xlsx` con las llaves primarias de `proveedores` (`id_proveedor`) y `productos` (`id_producto`).
-   - Detecta registros presentes en facturación pero ausentes en las tablas maestras (ej. proveedor `IAM IMPORT & EXPORT TRADING S.A.` e ítems `PROD-013` y `PROD-014`) y los da de alta automáticamente antes de insertar las líneas hijas, garantizando `PRAGMA foreign_key_check = 0 errores`.
+1. **Vinculación Automática y Auto-Curación de Relaciones:**
+   - Vincula automáticamente los nombres y descripciones de `FACTURACION.xlsx` con las claves primarias de `proveedores` (`id_proveedor`) y `productos` (`id_producto`).
+   - Detecta registros presentes en facturación pero ausentes en las tablas maestras (ej. proveedor `IAM IMPORT & EXPORT TRADING S.A.` e ítems `PROD-013` y `PROD-014`) y los da de alta automáticamente antes de insertar las líneas hijas, garantizando 0 inconsistencias de relación.
 2. **Motor de Inteligencia Artificial para Compras:**
    - **¿Qué comprar?** Detección automática de stock crítico y preventivo según velocidad de rotación.
    - **¿Cuándo y cuánto comprar?** Cálculo dinámico del Punto de Reorden (*Reorder Point*) y cantidad sugerida de pedido.

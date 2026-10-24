@@ -1,14 +1,14 @@
 ﻿{
     "metadata":  {
                      "proyecto":  "Sistema Inteligente de Abastecimiento y Compras - Accesorios Automotrices",
-                     "motor_bd":  "SQLite3 Relacional (PRAGMA foreign_keys = ON)",
+                     "motor_bd":  "SQLite3 Relacional con integridad referencial activa",
                      "fecha_sincronizacion":  "2026-10-23T23:00:00Z",
                      "archivos_origen":  [
                                              "PRODUCTOS.xlsx",
                                              "PROVEEDORES_COMPLETO_V2 (1).xlsx",
                                              "FACTURACION.xlsx"
                                          ],
-                     "integridad_fk_verificada":  true
+                     "integridad_verificada":  true
                  },
     "categorias":  [
                        {

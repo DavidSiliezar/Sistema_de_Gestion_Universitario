@@ -71,14 +71,14 @@ public class SqliteVerifier {
 Add-Type -TypeDefinition $csharpQuery
 $dbPath = "c:\Users\Xiomara Siliezar\Desktop\idea_Proyecto\database\inventario_compras.db"
 
-Write-Host "=== 1. AUDITORIA DE LLAVES FORANEAS (PRAGMA foreign_key_check) ===" -ForegroundColor Cyan
-$fkCheck = [SqliteVerifier]::Query($dbPath, "PRAGMA foreign_key_check;")
-if ($fkCheck.Count -eq 1) {
-    Write-Host "RESULTADO: 0 Violaciones de Foreign Keys. Integridad Referencial 100% Perfecta." -ForegroundColor Green
+Write-Host "=== 1. AUDITORIA DE INTEGRIDAD REFERENCIAL ===" -ForegroundColor Cyan
+$integrityCheck = [SqliteVerifier]::Query($dbPath, "PRAGMA foreign_key_check;")
+if ($integrityCheck.Count -eq 1) {
+    Write-Host "RESULTADO: 0 inconsistencias de relacion. Integridad Referencial 100% Perfecta." -ForegroundColor Green
 }
 
-Write-Host "`n=== 2. CONSULTA SQL A LA VISTA RELACIONAL (v_relaciones_completas_fk) ===" -ForegroundColor Cyan
-$vistaRel = [SqliteVerifier]::Query($dbPath, "SELECT numero_factura, nombre_proveedor, id_producto, nombre_producto_catalogo, nombre_categoria, cantidad, total_linea, metodo_vinculacion_fk FROM v_relaciones_completas_fk;")
+Write-Host "`n=== 2. CONSULTA SQL A LA VISTA RELACIONAL (v_relaciones_completas) ===" -ForegroundColor Cyan
+$vistaRel = [SqliteVerifier]::Query($dbPath, "SELECT numero_factura, nombre_proveedor, id_producto, nombre_producto_catalogo, nombre_categoria, cantidad, total_linea, metodo_vinculacion FROM v_relaciones_completas;")
 $vistaRel | ForEach-Object { Write-Host $_ }
 
 Write-Host "`n=== 3. CONSULTA SQL AL TABLERO DE IA (v_alertas_abastecimiento_ia) ===" -ForegroundColor Cyan

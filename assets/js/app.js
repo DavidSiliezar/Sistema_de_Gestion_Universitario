@@ -1,11 +1,3 @@
-/* ==========================================================================
-   TORQUE-SQL // MOTOR RELACIONAL SQL + INGESTA EXCEL (3 LIBROS) + IA
-   100% Funcional en Local, GitHub Pages y Vercel
-   ========================================================================== */
-
-// --------------------------------------------------------------------------
-// 1. CONFIGURACIÓN DE SWEETALERT2 (TOAST SUPER CORTO Y NO INTRUSIVO)
-// --------------------------------------------------------------------------
 const Toast = Swal.mixin({
   toast: true,
   position: "top-end",
@@ -21,9 +13,6 @@ function notifyToast(icon, title) {
   Toast.fire({ icon, title });
 }
 
-// --------------------------------------------------------------------------
-// 2. DATOS ORIGINALES EXTRAÍDOS DE LOS 3 LIBROS EXCEL DEL PROYECTO
-// --------------------------------------------------------------------------
 const INITIAL_EXCEL_PRODUCTOS = [
   {
     "ID del producto": "PROD-001",
@@ -430,15 +419,11 @@ const CATEGORIAS_META = {
   "CAT-RIN": { id_categoria: "CAT-RIN", nombre_categoria: "Rines y Llantas", stock_minimo_default: 8, factor_seguridad: 1.5 },
 };
 
-// --------------------------------------------------------------------------
-// 3. ESTADO GLOBAL DE LA APLICACIÓN Y PARÁMETROS DEL MODELO IA
-// --------------------------------------------------------------------------
 const AppState = {
   rawProductos: structuredClone(INITIAL_EXCEL_PRODUCTOS),
   rawProveedores: structuredClone(INITIAL_EXCEL_PROVEEDORES),
   rawFacturacion: structuredClone(INITIAL_EXCEL_FACTURACION),
 
-  // Parámetros ajustables en tiempo real del Simulador IA
   iaParams: {
     pesoCalidad: 40,
     pesoCumplimiento: 35,
@@ -446,30 +431,24 @@ const AppState = {
     crecimientoDemandaPct: 0,
   },
 
-  // Base de datos relacional procesada en memoria + instancia SQLite (sql.js)
   relational: null,
   sqliteDb: null,
   SQL: null,
 
-  // Instancias de gráficos Chart.js
   charts: {
     landedCost: null,
     stockHealth: null,
     supplierRadar: null,
   },
 
-  // Filtros de catálogo y visor de libros Excel
   filtroCategoria: "ALL",
   filtroAlerta: "ALL",
   busquedaTexto: "",
-  filtroLinajeFK: "ALL",
+  filtroRelaciones: "ALL",
   visLibroFiltro: "ALL",
   visBusqueda: "",
 };
 
-// --------------------------------------------------------------------------
-// 4. MOTOR DE RESOLUCIÓN AUTOMÁTICA DE LLAVES FORÁNEAS + MODELO IA
-// --------------------------------------------------------------------------
 function normalizeText(str) {
   if (!str) return "";
   return String(str)
@@ -498,9 +477,8 @@ function buildRelationalDatabase() {
   const categorias = structuredClone(CATEGORIAS_META);
   const proveedoresMap = new Map();
   let maxProvId = 0;
-  const fkAuditLog = [];
+  const auditLog = [];
 
-  // PASO 1: Tabla Maestra PROVEEDORES
   for (const row of AppState.rawProveedores) {
     const idProv = Number(row["No."] || row["id_proveedor"] || ++maxProvId);
     if (idProv > maxProvId) maxProvId = idProv;
@@ -550,7 +528,7 @@ function buildRelationalDatabase() {
     });
   }
 
-  const resolveProveedorFK = (nombreOMarca, fechaRef = "2026-01-27") => {
+  const resolveProveedorId = (nombreOMarca, fechaRef = "2026-01-27") => {
     const norm = normalizeText(nombreOMarca);
     for (const [id, prov] of proveedoresMap.entries()) {
       const pNorm = normalizeText(prov.nombre);
@@ -565,7 +543,6 @@ function buildRelationalDatabase() {
     if (/WHEEL/.test(norm) && proveedoresMap.has(3)) return 3;
     if (/FORTUNE|FPI/.test(norm) && proveedoresMap.has(2)) return 2;
 
-    // Auto-Curación de Llave Foránea (FK Auto-Heal)
     maxProvId++;
     const dias = 14;
     const cal = 4.5;
@@ -589,16 +566,15 @@ function buildRelationalDatabase() {
       score_ia: calcSupplierScore(cal, cump, dias),
       origen_registro: "AUTO_DETECTADO_FACTURACION",
     });
-    fkAuditLog.push({
+    auditLog.push({
       tipo: "AUTO_HEAL_PROVEEDOR",
       entidad: nombreOMarca.trim(),
       pk_generada: `id_proveedor = ${maxProvId}`,
-      detalle: "Detectado en FACTURACION.xlsx sin registro previo en PROVEEDORES.xlsx. Insertado automáticamente antes de vincular FK.",
+      detalle: "Detectado en FACTURACION.xlsx sin registro previo en PROVEEDORES.xlsx. Insertado automáticamente antes de vincular el registro.",
     });
     return maxProvId;
   };
 
-  // PASO 2: Tabla Maestra PRODUCTOS
   const productosMap = new Map();
   let maxProdNum = 0;
 
@@ -619,7 +595,7 @@ function buildRelationalDatabase() {
     }
 
     const marca = String(row["Marca"] || "GENÉRICO").trim();
-    const idProvPref = resolveProveedorFK(marca);
+    const idProvPref = resolveProveedorId(marca);
 
     const costoUnit = Number(row["Costo Unitario"] || 0);
     const flete = Number(row["Costo de Flete"] || 0);
@@ -664,7 +640,6 @@ function buildRelationalDatabase() {
     });
   }
 
-  // PASO 3: DOCUMENTOS_COMPRA y DETALLE_COMPRAS (con resolución de FKs)
   const documentosMap = new Map();
   const detalleCompras = [];
   let docCounter = 0;
@@ -684,7 +659,7 @@ function buildRelationalDatabase() {
     const iva13 = Number(Number(row["IVA 13%"] || 0).toFixed(2));
     const totalLinea = Number(Number(row["Total"] || cantidad * precioUnit).toFixed(2));
 
-    const idProvFK = resolveProveedorFK(nomProv, fecha);
+    const idProvRef = resolveProveedorId(nomProv, fecha);
 
     if (!documentosMap.has(numFact)) {
       docCounter++;
@@ -693,7 +668,7 @@ function buildRelationalDatabase() {
         numero_factura: numFact,
         fecha,
         tipo_documento: tipoDoc,
-        id_proveedor: idProvFK,
+        id_proveedor: idProvRef,
         numero_cotizacion: String(row["No. Cotización"] || row["No. Cotizacion"] || "N/A"),
         orden_compra: String(row["Orden de Compra"] || "S/N"),
         subtotal_documento: 0,
@@ -707,28 +682,27 @@ function buildRelationalDatabase() {
     docObj.iva_documento = Number((docObj.iva_documento + iva13).toFixed(2));
     docObj.total_documento = Number((docObj.subtotal_documento + docObj.iva_documento).toFixed(2));
 
-    // Resolución Inteligente de FK de Producto
     const normDesc = normalizeText(descFactura);
-    let idProdFK = null;
+    let idProdRef = null;
     let metodoVinc = "MATCH_EXACTO_CATALOGO";
 
     for (const [idP, prod] of productosMap.entries()) {
       const nNom = normalizeText(prod.nombre);
       const nFull = normalizeText(prod.descripcion);
       if (nNom === normDesc || nFull.includes(normDesc) || normDesc.includes(nNom)) {
-        idProdFK = idP;
+        idProdRef = idP;
         break;
       }
       if (normDesc.includes("15X7") && nFull.includes("15X7")) {
-        idProdFK = idP;
+        idProdRef = idP;
         metodoVinc = "MATCH_ESPECIFICACION_TECNICA";
         break;
       }
     }
 
-    if (!idProdFK) {
+    if (!idProdRef) {
       maxProdNum++;
-      idProdFK = `PROD-${String(maxProdNum).padStart(3, "0")}`;
+      idProdRef = `PROD-${String(maxProdNum).padStart(3, "0")}`;
       metodoVinc = "AUTO_ALTA_DESDE_FACTURA";
       const idCat = /ROLL BAR/i.test(normDesc) ? "CAT-DEF" : "CAT-EXT";
       const flete = Number((precioUnit * 0.07).toFixed(2));
@@ -738,13 +712,13 @@ function buildRelationalDatabase() {
       const totalComp = Number((precioUnit + flete + aranceles + impuestos + almacen).toFixed(2));
       const precioVta = Number((totalComp * 1.5).toFixed(2));
 
-      productosMap.set(idProdFK, {
-        id_producto: idProdFK,
+      productosMap.set(idProdRef, {
+        id_producto: idProdRef,
         codigo_sku: /ROLL BAR/i.test(normDesc) ? "SETMR-1001-C" : "7450B108",
         nombre: descFactura,
-        descripcion: `${descFactura} (Incorporado automáticamente desde Facturación para integridad FK)`,
+        descripcion: `${descFactura} (Incorporado automáticamente desde Facturación para mantener la integridad)`,
         id_categoria: idCat,
-        id_proveedor_preferido: idProvFK,
+        id_proveedor_preferido: idProvRef,
         marca: /ROLL BAR/i.test(normDesc) ? "IAM TRADING" : "FPI OEM",
         costo_unitario: precioUnit,
         costo_flete: flete,
@@ -765,10 +739,10 @@ function buildRelationalDatabase() {
         origen_registro: "AUTO_DETECTADO_FACTURACION",
       });
 
-      fkAuditLog.push({
+      auditLog.push({
         tipo: "AUTO_HEAL_PRODUCTO",
         entidad: descFactura,
-        pk_generada: `id_producto = '${idProdFK}'`,
+        pk_generada: `id_producto = '${idProdRef}'`,
         detalle: `Ítem facturado en ${numFact} no existía en PRODUCTOS.xlsx. Se dio de alta automáticamente en catálogo antes de insertar línea de factura.`,
       });
     }
@@ -778,8 +752,8 @@ function buildRelationalDatabase() {
       id_detalle: detCounter,
       id_documento: docObj.id_documento,
       numero_factura: numFact,
-      id_producto: idProdFK,
-      id_proveedor: idProvFK,
+      id_producto: idProdRef,
+      id_proveedor: idProvRef,
       descripcion_factura: descFactura,
       cantidad,
       precio_unitario: precioUnit,
@@ -792,7 +766,6 @@ function buildRelationalDatabase() {
     });
   }
 
-  // PASO 4: MOTOR PREDICTIVO DE IA (REORDER POINT & SCORING MULTICRITERIO)
   const recomendacionesIA = [];
   let recCounter = 0;
   const factorDemanda = 1 + AppState.iaParams.crecimientoDemandaPct / 100.0;
@@ -864,15 +837,12 @@ function buildRelationalDatabase() {
     documentos_compra: Array.from(documentosMap.values()),
     detalle_compras: detalleCompras,
     recomendaciones_ia: recomendacionesIA,
-    fk_audit_log: fkAuditLog,
+    registro_auditoria: auditLog,
   };
 
   syncInBrowserSqlite();
 }
 
-// --------------------------------------------------------------------------
-// 5. MOTOR SQLITE3 EN NAVEGADOR (SQL.JS WEBASSEMBLY) Y GENERADOR DE .SQL
-// --------------------------------------------------------------------------
 function escapeSql(val) {
   if (val === null || val === undefined) return "";
   return String(val).replace(/'/g, "''");
@@ -881,14 +851,11 @@ function escapeSql(val) {
 function generateFullSqlScript() {
   const rel = AppState.relational;
   const lines = [
-    "-- =============================================================================",
-    "-- TORQUE-SQL: DUMP RELACIONAL GENERADO AUTOMÁTICAMENTE DESDE LOS 3 EXCELS",
-    "-- =============================================================================",
     "PRAGMA foreign_keys = ON;",
     "",
     "DROP VIEW IF EXISTS v_alertas_abastecimiento_ia;",
     "DROP VIEW IF EXISTS v_analisis_rentabilidad_productos;",
-    "DROP VIEW IF EXISTS v_relaciones_completas_fk;",
+    "DROP VIEW IF EXISTS v_relaciones_completas;",
     "DROP TABLE IF EXISTS recomendaciones_ia;",
     "DROP TABLE IF EXISTS detalle_compras;",
     "DROP TABLE IF EXISTS documentos_compra;",
@@ -900,7 +867,7 @@ function generateFullSqlScript() {
     "CREATE TABLE proveedores (id_proveedor INTEGER PRIMARY KEY, nombre TEXT NOT NULL, contacto TEXT, nit TEXT, correo TEXT, direccion TEXT, pais_origen TEXT, condiciones_pago TEXT, fecha_registro TEXT, tiempo_entrega_dias INTEGER, calificacion_calidad REAL, cumplimiento_entregas_pct REAL, score_ia REAL, origen_registro TEXT);",
     "CREATE TABLE productos (id_producto TEXT PRIMARY KEY, codigo_sku TEXT, nombre TEXT NOT NULL, descripcion TEXT, id_categoria TEXT NOT NULL, id_proveedor_preferido INTEGER, marca TEXT, costo_unitario REAL, costo_flete REAL, aranceles_aduanales REAL, impuestos REAL, almacenaje REAL, precio_total_compra REAL, precio_venta REAL, margen_unitario REAL, margen_porcentaje REAL, existencia INTEGER, stock_minimo INTEGER, punto_reorden INTEGER, ubicacion TEXT, estado TEXT, fecha_ingreso TEXT, origen_registro TEXT, FOREIGN KEY (id_categoria) REFERENCES categorias(id_categoria), FOREIGN KEY (id_proveedor_preferido) REFERENCES proveedores(id_proveedor));",
     "CREATE TABLE documentos_compra (id_documento INTEGER PRIMARY KEY, numero_factura TEXT NOT NULL UNIQUE, fecha TEXT, tipo_documento TEXT, id_proveedor INTEGER NOT NULL, numero_cotizacion TEXT, orden_compra TEXT, subtotal_documento REAL, iva_documento REAL, total_documento REAL, FOREIGN KEY (id_proveedor) REFERENCES proveedores(id_proveedor));",
-    "CREATE TABLE detalle_compras (id_detalle INTEGER PRIMARY KEY, id_documento INTEGER NOT NULL, id_producto TEXT NOT NULL, descripcion_factura TEXT, cantidad INTEGER, precio_unitario REAL, iva_13 REAL, total_linea REAL, metodo_vinculacion_fk TEXT, FOREIGN KEY (id_documento) REFERENCES documentos_compra(id_documento), FOREIGN KEY (id_producto) REFERENCES productos(id_producto));",
+    "CREATE TABLE detalle_compras (id_detalle INTEGER PRIMARY KEY, id_documento INTEGER NOT NULL, id_producto TEXT NOT NULL, descripcion_factura TEXT, cantidad INTEGER, precio_unitario REAL, iva_13 REAL, total_linea REAL, metodo_vinculacion TEXT, FOREIGN KEY (id_documento) REFERENCES documentos_compra(id_documento), FOREIGN KEY (id_producto) REFERENCES productos(id_producto));",
     "CREATE TABLE recomendaciones_ia (id_recomendacion INTEGER PRIMARY KEY, id_producto TEXT NOT NULL, id_proveedor_sugerido INTEGER NOT NULL, nivel_alerta TEXT, prioridad INTEGER, existencia_actual INTEGER, stock_minimo INTEGER, punto_reorden INTEGER, dias_cobertura_estimados INTEGER, cantidad_sugerida_compra INTEGER, costo_unitario_estimado REAL, inversion_total_sugerida REAL, score_proveedor REAL, justificacion_ia TEXT, FOREIGN KEY (id_producto) REFERENCES productos(id_producto), FOREIGN KEY (id_proveedor_sugerido) REFERENCES proveedores(id_proveedor));",
     "",
   ];
@@ -925,7 +892,7 @@ function generateFullSqlScript() {
   }
 
   lines.push("");
-  lines.push(`CREATE VIEW v_relaciones_completas_fk AS SELECT dc.id_detalle, doc.numero_factura, doc.tipo_documento, doc.fecha, doc.orden_compra, prov.id_proveedor, prov.nombre AS nombre_proveedor, prod.id_producto, prod.codigo_sku, prod.nombre AS nombre_producto_catalogo, cat.nombre_categoria, dc.cantidad, dc.precio_unitario, dc.iva_13, dc.total_linea, dc.metodo_vinculacion_fk FROM detalle_compras dc INNER JOIN documentos_compra doc ON dc.id_documento = doc.id_documento INNER JOIN proveedores prov ON doc.id_proveedor = prov.id_proveedor INNER JOIN productos prod ON dc.id_producto = prod.id_producto INNER JOIN categorias cat ON prod.id_categoria = cat.id_categoria;`);
+  lines.push(`CREATE VIEW v_relaciones_completas AS SELECT dc.id_detalle, doc.numero_factura, doc.tipo_documento, doc.fecha, doc.orden_compra, prov.id_proveedor, prov.nombre AS nombre_proveedor, prod.id_producto, prod.codigo_sku, prod.nombre AS nombre_producto_catalogo, cat.nombre_categoria, dc.cantidad, dc.precio_unitario, dc.iva_13, dc.total_linea, dc.metodo_vinculacion FROM detalle_compras dc INNER JOIN documentos_compra doc ON dc.id_documento = doc.id_documento INNER JOIN proveedores prov ON doc.id_proveedor = prov.id_proveedor INNER JOIN productos prod ON dc.id_producto = prod.id_producto INNER JOIN categorias cat ON prod.id_categoria = cat.id_categoria;`);
   lines.push(`CREATE VIEW v_analisis_rentabilidad_productos AS SELECT p.id_producto, p.codigo_sku, p.nombre, c.nombre_categoria, p.marca, pr.nombre AS proveedor_preferido, p.costo_unitario, ROUND(p.costo_flete + p.aranceles_aduanales + p.impuestos + p.almacenaje, 2) AS gastos_importacion, p.precio_total_compra AS costo_landed_total, p.precio_venta, p.margen_unitario, p.margen_porcentaje, p.existencia, ROUND(p.existencia * p.precio_total_compra, 2) AS valor_inventario_costo FROM productos p INNER JOIN categorias c ON p.id_categoria = c.id_categoria LEFT JOIN proveedores pr ON p.id_proveedor_preferido = pr.id_proveedor;`);
   lines.push(`CREATE VIEW v_alertas_abastecimiento_ia AS SELECT r.id_recomendacion, r.nivel_alerta, p.id_producto, p.nombre AS producto, r.existencia_actual, r.stock_minimo, r.punto_reorden, r.cantidad_sugerida_compra, r.inversion_total_sugerida, pr.nombre AS proveedor_recomendado, r.score_proveedor FROM recomendaciones_ia r INNER JOIN productos p ON r.id_producto = p.id_producto INNER JOIN proveedores pr ON r.id_proveedor_sugerido = pr.id_proveedor ORDER BY r.prioridad ASC, r.inversion_total_sugerida DESC;`);
 
@@ -946,9 +913,6 @@ function syncInBrowserSqlite() {
   }
 }
 
-// --------------------------------------------------------------------------
-// 6. RENDERIZADO DE TODAS LAS VISTAS E INDICADORES
-// --------------------------------------------------------------------------
 function formatUSD(num) {
   return "$" + Number(num || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
@@ -956,7 +920,6 @@ function formatUSD(num) {
 function renderAllViews() {
   const rel = AppState.relational;
 
-  // Cálculo de KPIs globales
   const totalUnidades = rel.productos.reduce((acc, p) => acc + p.existencia, 0);
   const valorCostoInv = rel.productos.reduce((acc, p) => acc + p.existencia * p.precio_total_compra, 0);
   const valorVentaInv = rel.productos.reduce((acc, p) => acc + p.existencia * p.precio_venta, 0);
@@ -967,16 +930,14 @@ function renderAllViews() {
   const alertasPreventivas = rel.recomendaciones_ia.filter((r) => r.nivel_alerta === "PREVENTIVO");
   const inversionRecompraTotal = rel.recomendaciones_ia.reduce((acc, r) => acc + r.inversion_total_sugerida, 0);
 
-  // Actualizar Badges de Navegación y Telemetría Lateral
   document.getElementById("nav-badge-alertas").textContent = `${alertasCriticas.length} Crít`;
   document.getElementById("nav-badge-productos").textContent = rel.productos.length;
-  document.getElementById("nav-badge-fk").textContent = `${rel.detalle_compras.length}/${rel.detalle_compras.length} OK`;
+  document.getElementById("nav-badge-relaciones").textContent = `${rel.detalle_compras.length}/${rel.detalle_compras.length} OK`;
 
   document.getElementById("side-count-prod").textContent = `${rel.productos.length} registros`;
   document.getElementById("side-count-prov").textContent = `${rel.proveedores.length} registros`;
   document.getElementById("side-count-fact").textContent = `${rel.detalle_compras.length} líneas`;
 
-  // Renderizar KPIs en Vista 1
   document.getElementById("kpi-valor-costo").textContent = formatUSD(valorCostoInv);
   document.getElementById("kpi-valor-venta").textContent = `Venta proyectada: ${formatUSD(valorVentaInv)} (${ totalUnidades } uds)`;
 
@@ -986,12 +947,12 @@ function renderAllViews() {
   document.getElementById("kpi-inversion-ia").textContent = formatUSD(inversionRecompraTotal);
   document.getElementById("kpi-alertas-resumen").textContent = `${alertasCriticas.length} críticos · ${alertasPreventivas.length} preventivos`;
 
-  document.getElementById("kpi-fk-integridad").textContent = "100% VÁLIDO";
-  document.getElementById("kpi-fk-sub").textContent = `${rel.detalle_compras.length} FKs vinculadas · ${rel.fk_audit_log.length} Auto-Curadas`;
+  document.getElementById("kpi-integridad").textContent = "100% VÁLIDO";
+  document.getElementById("kpi-integridad-sub").textContent = `${rel.detalle_compras.length} relaciones vinculadas · ${rel.registro_auditoria.length} Auto-Curadas`;
 
   renderDashboardTables();
   renderCharts();
-  renderFKLineageView();
+  renderRelacionesView();
   renderVisualizarExcelsView();
   renderIAPredictiveView();
   renderCatalogoView();
@@ -1001,7 +962,6 @@ function renderAllViews() {
 function renderDashboardTables() {
   const rel = AppState.relational;
 
-  // Tabla rápida de Alertas Prioritarias en Dashboard
   const tbodyAlertas = document.getElementById("dash-alertas-tbody");
   const topAlertas = rel.recomendaciones_ia.filter((r) => r.nivel_alerta !== "OPTIMO").slice(0, 7);
 
@@ -1019,7 +979,7 @@ function renderDashboardTables() {
           <td style="font-family:var(--font-mono); font-weight:700; color:var(--accent-emerald)">+${r.cantidad_sugerida_compra} uds</td>
           <td style="font-family:var(--font-mono); font-weight:600">${formatUSD(r.inversion_total_sugerida)}</td>
           <td>
-            <span class="fk-tag">FK → #${r.id_proveedor_sugerido}</span>
+            <span class="relation-tag">Proveedor #${r.id_proveedor_sugerido}</span>
             <div style="font-size:11.5px; margin-top:2px">${r.nombre_proveedor}</div>
           </td>
           <td>
@@ -1032,7 +992,6 @@ function renderDashboardTables() {
     })
     .join("");
 
-  // Tabla rápida de Documentos de Compra Recientes
   const tbodyDocs = document.getElementById("dash-facturas-tbody");
   tbodyDocs.innerHTML = rel.detalle_compras
     .map((d) => {
@@ -1047,11 +1006,11 @@ function renderDashboardTables() {
             <div style="font-size:11px; color:var(--text-muted)">${doc ? doc.fecha : ""} · ${doc ? doc.tipo_documento : ""}</div>
           </td>
           <td>
-            <span class="fk-tag">FK_Prov #${d.id_proveedor}</span>
+            <span class="relation-tag">Proveedor #${d.id_proveedor}</span>
             <div style="font-size:12px; font-weight:500; margin-top:2px">${prov ? prov.nombre : ""}</div>
           </td>
           <td>
-            <span class="fk-tag">FK_Prod ${d.id_producto}</span>
+            <span class="relation-tag">Producto ${d.id_producto}</span>
             <div style="font-size:12px; font-weight:500; margin-top:2px">${prod ? prod.nombre : d.descripcion_factura}</div>
           </td>
           <td style="font-family:var(--font-mono)">${d.cantidad}</td>
@@ -1066,17 +1025,17 @@ function renderDashboardTables() {
     .join("");
 }
 
-// --------------------------------------------------------------------------
-// 7. GRÁFICOS INTERACTIVOS (CHART.JS)
-// --------------------------------------------------------------------------
 function renderCharts() {
   if (typeof Chart === "undefined") return;
   const rel = AppState.relational;
 
-  Chart.defaults.color = "#94a3b8";
-  Chart.defaults.font.family = "'JetBrains Mono', 'Plus Jakarta Sans', sans-serif";
+  const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+  const textColor = isDark ? "#cbd5e1" : "#334155";
+  const gridColor = isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.07)";
 
-  // 1. Gráfico Landed Cost vs Precio de Venta
+  Chart.defaults.color = textColor;
+  Chart.defaults.font.family = "'Times New Roman', Times, serif";
+
   const ctxLanded = document.getElementById("chart-landed-cost");
   if (ctxLanded) {
     if (AppState.charts.landedCost) AppState.charts.landedCost.destroy();
@@ -1089,19 +1048,19 @@ function renderCharts() {
           {
             label: "Costo FOB Unitario ($)",
             data: topProds.map((p) => p.costo_unitario),
-            backgroundColor: "#3b82f6",
+            backgroundColor: "#1e40af",
             stack: "cost",
           },
           {
             label: "Flete + Arancel + Impuestos + Almacén ($)",
             data: topProds.map((p) => Number((p.costo_flete + p.aranceles_aduanales + p.impuestos + p.almacenaje).toFixed(2))),
-            backgroundColor: "#f59e0b",
+            backgroundColor: "#d97706",
             stack: "cost",
           },
           {
             label: "Precio de Venta ($)",
             data: topProds.map((p) => p.precio_venta),
-            backgroundColor: "#10b981",
+            backgroundColor: "#059669",
           },
         ],
       },
@@ -1109,8 +1068,10 @@ function renderCharts() {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { position: "top", labels: { boxWidth: 12, font: { size: 11 } } },
+          legend: { position: "top", labels: { boxWidth: 12, font: { family: "'Times New Roman', Times, serif", size: 12 } } },
           tooltip: {
+            titleFont: { family: "'Times New Roman', Times, serif" },
+            bodyFont: { family: "'Times New Roman', Times, serif" },
             callbacks: {
               afterTitle: (items) => {
                 const idx = items[0].dataIndex;
@@ -1120,14 +1081,13 @@ function renderCharts() {
           },
         },
         scales: {
-          x: { grid: { color: "rgba(255,255,255,0.04)" } },
-          y: { grid: { color: "rgba(255,255,255,0.06)" }, ticks: { callback: (v) => "$" + v } },
+          x: { grid: { color: gridColor }, ticks: { font: { family: "'Times New Roman', Times, serif" } } },
+          y: { grid: { color: gridColor }, ticks: { font: { family: "'Times New Roman', Times, serif" }, callback: (v) => "$" + v } },
         },
       },
     });
   }
 
-  // 2. Gráfico Salud de Stock (Existencia vs Punto de Reorden)
   const ctxStock = document.getElementById("chart-stock-health");
   if (ctxStock) {
     if (AppState.charts.stockHealth) AppState.charts.stockHealth.destroy();
@@ -1140,7 +1100,7 @@ function renderCharts() {
             label: "Existencia Actual (Uds)",
             data: rel.productos.map((p) => p.existencia),
             backgroundColor: rel.productos.map((p) =>
-              p.existencia <= p.stock_minimo ? "#ef4444" : p.existencia <= p.punto_reorden ? "#f59e0b" : "#10b981"
+              p.existencia <= p.stock_minimo ? "#dc2626" : p.existencia <= p.punto_reorden ? "#d97706" : "#059669"
             ),
             borderRadius: 4,
           },
@@ -1148,9 +1108,9 @@ function renderCharts() {
             label: "Punto de Reorden (IA)",
             data: rel.productos.map((p) => p.punto_reorden),
             type: "line",
-            borderColor: "#06b6d4",
+            borderColor: "#0284c7",
             borderWidth: 2,
-            pointBackgroundColor: "#06b6d4",
+            pointBackgroundColor: "#0284c7",
             tension: 0.25,
           },
         ],
@@ -1159,22 +1119,23 @@ function renderCharts() {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { position: "top", labels: { boxWidth: 12, font: { size: 11 } } },
+          legend: { position: "top", labels: { boxWidth: 12, font: { family: "'Times New Roman', Times, serif", size: 12 } } },
           tooltip: {
+            titleFont: { family: "'Times New Roman', Times, serif" },
+            bodyFont: { family: "'Times New Roman', Times, serif" },
             callbacks: {
               afterTitle: (items) => rel.productos[items[0].dataIndex].nombre,
             },
           },
         },
         scales: {
-          x: { grid: { color: "rgba(255,255,255,0.04)" } },
-          y: { grid: { color: "rgba(255,255,255,0.06)" } },
+          x: { grid: { color: gridColor }, ticks: { font: { family: "'Times New Roman', Times, serif" } } },
+          y: { grid: { color: gridColor }, ticks: { font: { family: "'Times New Roman', Times, serif" } } },
         },
       },
     });
   }
 
-  // 3. Gráfico Comparativo de Proveedores en Vista IA
   const ctxProv = document.getElementById("chart-supplier-radar");
   if (ctxProv) {
     if (AppState.charts.supplierRadar) AppState.charts.supplierRadar.destroy();
@@ -1186,19 +1147,19 @@ function renderCharts() {
           {
             label: "Score Global IA (/100)",
             data: rel.proveedores.map((p) => p.score_ia),
-            backgroundColor: "#f59e0b",
+            backgroundColor: "#1e40af",
             borderRadius: 5,
           },
           {
             label: "Cumplimiento Entregas (%)",
             data: rel.proveedores.map((p) => p.cumplimiento_entregas_pct),
-            backgroundColor: "#06b6d4",
+            backgroundColor: "#0284c7",
             borderRadius: 5,
           },
           {
             label: "Tiempo Entrega (Días)",
             data: rel.proveedores.map((p) => p.tiempo_entrega_dias),
-            backgroundColor: "#ef4444",
+            backgroundColor: "#dc2626",
             borderRadius: 5,
           },
         ],
@@ -1208,48 +1169,46 @@ function renderCharts() {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { position: "top", labels: { boxWidth: 12, font: { size: 11 } } },
+          legend: { position: "top", labels: { boxWidth: 12, font: { family: "'Times New Roman', Times, serif", size: 12 } } },
+          tooltip: {
+            titleFont: { family: "'Times New Roman', Times, serif" },
+            bodyFont: { family: "'Times New Roman', Times, serif" },
+          },
         },
         scales: {
-          x: { grid: { color: "rgba(255,255,255,0.05)" } },
-          y: { grid: { color: "rgba(255,255,255,0.03)" } },
+          x: { grid: { color: gridColor }, ticks: { font: { family: "'Times New Roman', Times, serif" } } },
+          y: { grid: { color: gridColor }, ticks: { font: { family: "'Times New Roman', Times, serif" } } },
         },
       },
     });
   }
 }
 
-// --------------------------------------------------------------------------
-// 8. VISTA 2: INGESTA DE LOS 3 EXCELS Y LINAJE DE LLAVES FORÁNEAS (FK)
-// --------------------------------------------------------------------------
-function renderFKLineageView() {
+function renderRelacionesView() {
   const rel = AppState.relational;
 
-  // Actualizar contadores de las 3 bahías Excel
   document.getElementById("bay-prod-stat").textContent = `${AppState.rawProductos.length} filas leídas · PK: id_producto`;
   document.getElementById("bay-prov-stat").textContent = `${AppState.rawProveedores.length} filas leídas · PK: id_proveedor`;
-  document.getElementById("bay-fact-stat").textContent = `${AppState.rawFacturacion.length} líneas · FK_Prov & FK_Prod activos`;
+  document.getElementById("bay-fact-stat").textContent = `${AppState.rawFacturacion.length} líneas · proveedor y producto activos`;
 
-  // Renderizar bitácora de Auto-Curación de FKs
-  const auditContainer = document.getElementById("fk-audit-cards");
-  auditContainer.innerHTML = rel.fk_audit_log
+  const auditContainer = document.getElementById("auditoria-cards");
+  auditContainer.innerHTML = rel.registro_auditoria
     .map(
       (item) => `
-      <div style="background:var(--bg-obsidian); border:1px solid rgba(168,85,247,0.4); border-left:4px solid #a855f7; border-radius:8px; padding:12px 14px">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px">
+      <div class="audit-card">
+        <div class="audit-card-header">
           <span class="status-badge autoheal">${item.tipo}</span>
           <span class="code-chip">${item.pk_generada}</span>
         </div>
-        <div style="font-weight:700; color:var(--text-primary); margin-bottom:3px">${item.entidad}</div>
-        <div style="font-size:12px; color:var(--text-secondary)">${item.detalle}</div>
+        <div class="audit-card-title">${item.entidad}</div>
+        <div class="audit-card-detail">${item.detalle}</div>
       </div>
     `
     )
     .join("");
 
-  // Renderizar Matriz de Trazabilidad FK
-  const tbodyLinaje = document.getElementById("fk-lineage-tbody");
-  const filtro = AppState.filtroLinajeFK;
+  const tbodyLinaje = document.getElementById("relaciones-tbody");
+  const filtro = AppState.filtroRelaciones;
   const filas = rel.detalle_compras.filter((d) => {
     if (filtro === "AUTO") return d.metodo_vinculacion.includes("AUTO");
     if (filtro === "EXACT") return !d.metodo_vinculacion.includes("AUTO");
@@ -1273,14 +1232,14 @@ function renderFKLineageView() {
           <td>
             <div style="font-size:11.5px; color:var(--text-secondary)">En Excel: "${prov ? prov.nombre : ""}"</div>
             <div style="margin-top:4px">
-              <span class="fk-tag">FK id_proveedor = ${d.id_proveedor}</span>
+              <span class="relation-tag">Proveedor #${d.id_proveedor}</span>
               ${prov?.origen_registro.includes("AUTO") ? '<span class="status-badge autoheal" style="margin-left:4px">PK Auto-Creada</span>' : ""}
             </div>
           </td>
           <td>
             <div style="font-size:11.5px; color:var(--text-secondary)">En Excel: "${d.descripcion_factura}"</div>
             <div style="margin-top:4px">
-              <span class="fk-tag">FK id_producto = '${d.id_producto}'</span>
+              <span class="relation-tag">Producto ${d.id_producto}</span>
               <span style="font-size:11.5px; color:var(--text-primary); margin-left:6px">→ ${prod ? prod.nombre : ""}</span>
             </div>
           </td>
@@ -1298,7 +1257,6 @@ function renderFKLineageView() {
     .join("");
 }
 
-// Procesador de subida de archivos Excel reales (.xlsx) mediante SheetJS
 function handleExcelFileUpload(event, targetBook) {
   const file = event.target.files?.[0];
   if (!file) return;
@@ -1335,7 +1293,7 @@ function handleExcelFileUpload(event, targetBook) {
 
       buildRelationalDatabase();
       renderAllViews();
-      notifyToast("success", `Excel '${file.name}' (${jsonRows.length} filas) insertado con FKs validadas`);
+      notifyToast("success", `Excel '${file.name}' (${jsonRows.length} filas) insertado con relaciones validadas`);
     } catch (err) {
       console.error(err);
       notifyToast("error", `Error al procesar ${file.name}`);
@@ -1355,12 +1313,9 @@ function resetToOriginalExcels() {
 
   buildRelationalDatabase();
   renderAllViews();
-  notifyToast("info", "3 libros Excel originales restaurados y FKs re-sincronizadas");
+  notifyToast("info", "3 libros Excel originales restaurados y relaciones re-sincronizadas");
 }
 
-// --------------------------------------------------------------------------
-// 8.5 VISTA NUEVA: VISUALIZAR (TODOS LOS REGISTROS DE CADA LIBRO EXCEL SEPARADOS)
-// --------------------------------------------------------------------------
 function setLibroVisorFilter(libro) {
   AppState.visLibroFiltro = libro;
   const mapBtns = {
@@ -1408,20 +1363,20 @@ function renderRawExcelBookTable(rows, theadId, tbodyId, countId, bookType) {
   }
 
   const columns = Object.keys(rows[0]);
-  const extraHeader = bookType === "FACTURACION" ? "<th>Vínculo FK en BD SQL</th>" : "";
+  const extraHeader = bookType === "FACTURACION" ? "<th>Vínculo en base de datos</th>" : "";
   thead.innerHTML = `<tr><th># Fila</th>${extraHeader}${columns.map((c) => `<th>${c}</th>`).join("")}</tr>`;
 
   const rel = AppState.relational;
 
   tbody.innerHTML = filteredRows
     .map((row, idx) => {
-      let fkCell = "";
+      let relCell = "";
       if (bookType === "FACTURACION" && rel) {
         const detMatch = rel.detalle_compras[idx] || rel.detalle_compras.find((d) => d.numero_factura === String(row["No. De factura"]) && d.descripcion_factura === String(row["Descripción"] || row["Descripcion"]));
         if (detMatch) {
-          fkCell = `<td><span class="fk-tag">FK_Prov #${detMatch.id_proveedor}</span> <span class="fk-tag">FK_Prod ${detMatch.id_producto}</span></td>`;
+          relCell = `<td><span class="relation-tag">Proveedor #${detMatch.id_proveedor}</span> <span class="relation-tag">Producto ${detMatch.id_producto}</span></td>`;
         } else {
-          fkCell = `<td><span class="fk-tag">FK Activa</span></td>`;
+          relCell = `<td><span class="relation-tag">Vínculo activo</span></td>`;
         }
       }
 
@@ -1433,7 +1388,7 @@ function renderRawExcelBookTable(rows, theadId, tbodyId, countId, bookType) {
             return `<td><span class="code-chip">${val !== "" && val !== null && val !== undefined ? val : "—"}</span></td>`;
           }
           if (colNorm.includes("ID DE CATEGORIA")) {
-            return `<td><span class="fk-tag">${val}</span></td>`;
+            return `<td><span class="relation-tag">${val}</span></td>`;
           }
           if (
             typeof val === "number" &&
@@ -1449,7 +1404,7 @@ function renderRawExcelBookTable(rows, theadId, tbodyId, countId, bookType) {
         })
         .join("");
 
-      return `<tr><td style="font-family:var(--font-mono); color:var(--text-muted)">${idx + 1}</td>${fkCell}${cellsHtml}</tr>`;
+      return `<tr><td style="font-family:var(--font-mono); color:var(--text-muted)">${idx + 1}</td>${relCell}${cellsHtml}</tr>`;
     })
     .join("");
 }
@@ -1466,13 +1421,9 @@ function renderVisualizarExcelsView() {
   }
 }
 
-// --------------------------------------------------------------------------
-// 9. VISTA 3: MOTOR PREDICTIVO IA, SIMULADOR Y COPILOTO DE COMPRAS
-// --------------------------------------------------------------------------
 function renderIAPredictiveView() {
   const rel = AppState.relational;
 
-  // Tabla completa de Recomendaciones de IA
   const tbodyIA = document.getElementById("ia-recomendaciones-tbody");
   tbodyIA.innerHTML = rel.recomendaciones_ia
     .map((r) => {
@@ -1493,7 +1444,7 @@ function renderIAPredictiveView() {
             <div style="font-size:11px; color:var(--text-muted)">Demanda: ${r.demanda_mensual_estimada}/mes</div>
           </td>
           <td>
-            <span class="fk-tag">FK_Prov #${r.id_proveedor_sugerido}</span>
+            <span class="relation-tag">Proveedor #${r.id_proveedor_sugerido}</span>
             <div style="font-weight:600; font-size:12px; margin-top:2px">${r.nombre_proveedor}</div>
             <div style="font-size:11px; color:var(--accent-amber)">Score IA: ${r.score_proveedor}/100 · Lead: ${r.tiempo_entrega_dias}d</div>
           </td>
@@ -1567,11 +1518,11 @@ function askCopilotIA(predefinedQuestion = null) {
     const porMargen = [...rel.productos].sort((a, b) => b.margen_unitario - a.margen_unitario);
     const topM = porMargen[0];
     answer = `<b>Análisis de Rentabilidad y Landed Cost:</b><br>El producto con mayor utilidad neta por unidad es <b>${topM.id_producto} - ${topM.nombre}</b>:<br>• Costo FOB: ${formatUSD(topM.costo_unitario)} + Gastos Importación: ${formatUSD(topM.precio_total_compra - topM.costo_unitario)} = <b>Landed Cost: ${formatUSD(topM.precio_total_compra)}</b><br>• Precio Venta: <b>${formatUSD(topM.precio_venta)}</b> → Ganancia Neta: <b>${formatUSD(topM.margen_unitario)} (+${topM.margen_porcentaje}%)</b>.`;
-  } else if (qNorm.includes("FK") || qNorm.includes("FORANEA") || qNorm.includes("PROD-013") || qNorm.includes("IAM")) {
-    answer = `<b>Auditoría de Integridad Referencial (Auto-Heal FK):</b><br>Al cruzar los 3 libros Excel, el motor detectó que en <code>FACTURACION.xlsx</code> existía el proveedor <b>IAM IMPORT & EXPORT TRADING S.A.</b> y los ítems <b>2024 TRITON ROLL BAR CHROME</b> y <b>GRILLE MBG115 NG</b> que no estaban en las tablas maestras.<br>El sistema creó automáticamente <code>id_proveedor = 4</code>, <code>PROD-013</code> y <code>PROD-014</code> antes de insertar el detalle de facturas, logrando <b>0 violaciones de Foreign Keys</b>.`;
+  } else if (qNorm.includes("VINCUL") || qNorm.includes("RELACION") || qNorm.includes("INTEGRIDAD") || qNorm.includes("PROD-013") || qNorm.includes("IAM")) {
+    answer = `<b>Auditoría de Integridad Referencial:</b><br>Al cruzar los 3 libros Excel, el motor detectó que en <code>FACTURACION.xlsx</code> existía el proveedor <b>IAM IMPORT & EXPORT TRADING S.A.</b> y los ítems <b>2024 TRITON ROLL BAR CHROME</b> y <b>GRILLE MBG115 NG</b> que no estaban en las tablas maestras.<br>El sistema creó automáticamente <code>id_proveedor = 4</code>, <code>PROD-013</code> y <code>PROD-014</code> antes de insertar el detalle de facturas, logrando <b>0 inconsistencias de relación</b>.`;
   } else {
     const totalCosto = rel.productos.reduce((a, p) => a + p.existencia * p.precio_total_compra, 0);
-    answer = `<b>Resumen Operativo en Tiempo Real:</b><br>• Catálogo activo: <b>${rel.productos.length} productos</b> en 6 categorías automotrices.<br>• Valor del inventario (Landed Cost): <b>${formatUSD(totalCosto)}</b>.<br>• Integridad SQL: <b>${rel.detalle_compras.length} líneas de factura</b> vinculadas con éxito a sus llaves foráneas.<br>Puedes preguntarme por: <i>"stock crítico"</i>, <i>"mejor proveedor"</i>, <i>"mayor margen"</i> o <i>"auditoría de FKs"</i>.`;
+    answer = `<b>Resumen Operativo en Tiempo Real:</b><br>• Catálogo activo: <b>${rel.productos.length} productos</b> en 6 categorías automotrices.<br>• Valor del inventario (Landed Cost): <b>${formatUSD(totalCosto)}</b>.<br>• Integridad SQL: <b>${rel.detalle_compras.length} líneas de factura</b> vinculadas con éxito a su proveedor y producto.<br>Puedes preguntarme por: <i>"stock crítico"</i>, <i>"mejor proveedor"</i>, <i>"mayor margen"</i> o <i>"auditoría de integridad"</i>.`;
   }
 
   msgBox.innerHTML += `<div class="msg-bubble ai">${answer}</div>`;
@@ -1579,9 +1530,6 @@ function askCopilotIA(predefinedQuestion = null) {
   notifyToast("success", "Copiloto IA procesó la consulta");
 }
 
-// --------------------------------------------------------------------------
-// 10. VISTA 4: CATÁLOGO MAESTRO, RAYOS-X LANDED COST Y CRUD RELACIONAL
-// --------------------------------------------------------------------------
 function renderCatalogoView() {
   const rel = AppState.relational;
   const tbody = document.getElementById("catalogo-tbody");
@@ -1622,8 +1570,8 @@ function renderCatalogoView() {
             <div style="font-size:11.5px; color:var(--text-secondary)">Marca: <b>${p.marca}</b> · Ubicación: ${p.ubicacion}</div>
           </td>
           <td>
-            <span class="fk-tag">FK ${p.id_categoria}</span>
-            <div style="margin-top:4px"><span class="fk-tag">FK Prov #${p.id_proveedor_preferido} (${prov ? prov.nombre.substring(0, 18) : ""}...)</span></div>
+            <span class="relation-tag">Categoría ${p.id_categoria}</span>
+            <div style="margin-top:4px"><span class="relation-tag">Proveedor #${p.id_proveedor_preferido} (${prov ? prov.nombre.substring(0, 18) : ""}...)</span></div>
           </td>
           <td style="min-width:210px">
             <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11.5px">
@@ -1684,9 +1632,6 @@ function populateFormSelects() {
   }
 }
 
-// --------------------------------------------------------------------------
-// 11. MODAL DE ORDEN DE COMPRA (IA) Y SIMULACIÓN DE REABASTECIMIENTO
-// --------------------------------------------------------------------------
 let currentModalProdId = null;
 
 function openPurchaseOrderModal(idProducto) {
@@ -1711,14 +1656,14 @@ function openPurchaseOrderModal(idProducto) {
 
     <div class="grid-equal" style="margin-bottom:16px">
       <div style="background:var(--bg-obsidian); padding:12px; border-radius:8px; border:1px solid var(--border-subtle)">
-        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted)">PROVEEDOR ÓPTIMO SELECCIONADO (FK_PROV #${prov.id_proveedor})</div>
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted)">PROVEEDOR ÓPTIMO SELECCIONADO (#${prov.id_proveedor})</div>
         <div style="font-weight:700; font-size:14px; margin-top:4px">${prov.nombre}</div>
         <div style="font-size:12px; color:var(--text-secondary); margin-top:2px">${prov.pais_origen} · Lead Time: <b>${prov.tiempo_entrega_dias} días</b></div>
         <div style="font-size:11.5px; color:var(--accent-amber); margin-top:4px; font-family:var(--font-mono)">Score IA: ${prov.score_ia}/100 · Cumplimiento: ${prov.cumplimiento_entregas_pct}%</div>
       </div>
 
       <div style="background:var(--bg-obsidian); padding:12px; border-radius:8px; border:1px solid var(--border-subtle)">
-        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted)">PRODUCTO A REABASTECER (FK_PROD ${prod.id_producto})</div>
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--text-muted)">PRODUCTO A REABASTECER (${prod.id_producto})</div>
         <div style="font-weight:700; font-size:14px; margin-top:4px">${prod.nombre}</div>
         <div style="font-size:12px; color:var(--text-secondary); margin-top:2px">SKU: <span class="code-chip">${prod.codigo_sku}</span> · Ubicación: ${prod.ubicacion}</div>
         <div style="font-size:11.5px; color:var(--accent-cyan); margin-top:4px; font-family:var(--font-mono)">Stock Actual: ${rec.existencia_actual} uds → Stock Post-Compra: ${rec.existencia_actual + rec.cantidad_sugerida_compra} uds</div>
@@ -1768,7 +1713,6 @@ function confirmAndExecutePurchaseOrder() {
 
   if (!rec || !prod || !prov) return;
 
-  // Actualizar stock en el catálogo original y registrar la nueva factura de compra automáticamente
   const rawProd = AppState.rawProductos.find((r) => String(r["ID del producto"]) === currentModalProdId);
   if (rawProd) {
     rawProd["Existencia"] = Number(rawProd["Existencia"] || 0) + rec.cantidad_sugerida_compra;
@@ -1801,9 +1745,6 @@ function confirmAndExecutePurchaseOrder() {
   notifyToast("success", `OC ${nuevaFacturaNum} insertada en SQL (+${rec.cantidad_sugerida_compra} uds a ${prod.id_producto})`);
 }
 
-// --------------------------------------------------------------------------
-// 12. FORMULARIO PARA AGREGAR NUEVA FACTURA Y PROBAR VINCULACIÓN DE FK EN VIVO
-// --------------------------------------------------------------------------
 function handleInsertarFacturaVivo(event) {
   event.preventDefault();
   const numFact = document.getElementById("new-fact-num").value.trim() || `INV-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -1834,7 +1775,7 @@ function handleInsertarFacturaVivo(event) {
 
   buildRelationalDatabase();
   renderAllViews();
-  notifyToast("success", `Factura ${numFact} vinculada automáticamente con FKs en SQLite`);
+  notifyToast("success", `Factura ${numFact} vinculada automáticamente con sus relaciones en SQLite`);
 }
 
 function handleInsertarProductoVivo(event) {
@@ -1882,23 +1823,20 @@ function handleInsertarProductoVivo(event) {
 
   buildRelationalDatabase();
   renderAllViews();
-  notifyToast("success", `Producto ${newId} insertado con FK ${idCat} en SQLite`);
+  notifyToast("success", `Producto ${newId} insertado con categoría ${idCat} en SQLite`);
 }
 
-// --------------------------------------------------------------------------
-// 13. VISTA 5: LABORATORIO SQL EN VIVO (SQL.JS WEBASSEMBLY + FALLBACK)
-// --------------------------------------------------------------------------
 const PRESET_SQL_QUERIES = {
-  join_fk: `SELECT 
+  join_relaciones: `SELECT 
   numero_factura AS Factura,
-  nombre_proveedor AS Proveedor_FK,
-  id_producto AS ID_Prod_FK,
+  nombre_proveedor AS Proveedor,
+  id_producto AS ID_Producto,
   nombre_producto_catalogo AS Accesorio,
-  nombre_categoria AS Categoria_FK,
+  nombre_categoria AS Categoria,
   cantidad AS Cant,
   total_linea AS Total_USD,
-  metodo_vinculacion_fk AS Metodo_FK
-FROM v_relaciones_completas_fk;`,
+  metodo_vinculacion AS Metodo_Vinculo
+FROM v_relaciones_completas;`,
 
   ia_reorden: `SELECT 
   nivel_alerta AS Alerta,
@@ -1957,7 +1895,6 @@ function executeLiveSql() {
   const tbody = document.getElementById("sql-result-tbody");
   const metaEl = document.getElementById("sql-exec-meta");
 
-  // Si SQL.js WebAssembly está cargado, ejecuta SQL real directamente sobre SQLite
   if (AppState.sqliteDb) {
     try {
       const res = AppState.sqliteDb.exec(sql);
@@ -1986,14 +1923,13 @@ function executeLiveSql() {
       notifyToast("success", `Consulta SQL: ${values.length} filas (${elapsed} ms)`);
       return;
     } catch (err) {
-      thead.innerHTML = "<tr><th>Error de Sintaxis o Restricción FK en SQLite</th></tr>";
+      thead.innerHTML = "<tr><th>Error de Sintaxis o Restricción de relación en SQLite</th></tr>";
       tbody.innerHTML = `<tr><td style="color:var(--accent-crimson); font-family:var(--font-mono)">${err.message}</td></tr>`;
       notifyToast("error", "Error en sentencia SQL");
       return;
     }
   }
 
-  // Fallback instantáneo si aún está inicializando WASM
   const rel = AppState.relational;
   let rows = rel.detalle_compras;
   if (/v_alertas_abastecimiento_ia|recomendaciones/i.test(sql)) {
@@ -2015,9 +1951,6 @@ function executeLiveSql() {
   }
 }
 
-// --------------------------------------------------------------------------
-// 14. EXPORTACIÓN DE ARCHIVOS (.SQL, .DB SQLITE BINARIO Y .XLSX)
-// --------------------------------------------------------------------------
 function downloadSqlDump() {
   const sqlContent = generateFullSqlScript();
   const blob = new Blob([sqlContent], { type: "application/sql;charset=utf-8" });
@@ -2056,12 +1989,12 @@ function exportIAPurchaseOrdersExcel() {
   const wb = XLSX.utils.book_new();
 
   const wsIA = XLSX.utils.json_to_sheet(rel.recomendaciones_ia);
-  const wsFK = XLSX.utils.json_to_sheet(rel.detalle_compras);
+  const wsRel = XLSX.utils.json_to_sheet(rel.detalle_compras);
   const wsProd = XLSX.utils.json_to_sheet(rel.productos);
   const wsProv = XLSX.utils.json_to_sheet(rel.proveedores);
 
   XLSX.utils.book_append_sheet(wb, wsIA, "Ordenes_Compra_IA");
-  XLSX.utils.book_append_sheet(wb, wsFK, "Facturacion_FKs");
+  XLSX.utils.book_append_sheet(wb, wsRel, "Facturacion_Relaciones");
   XLSX.utils.book_append_sheet(wb, wsProd, "Catalogo_Productos");
   XLSX.utils.book_append_sheet(wb, wsProv, "Proveedores_Scoring");
 
@@ -2069,17 +2002,35 @@ function exportIAPurchaseOrdersExcel() {
   notifyToast("success", "Libro Excel de Órdenes de Compra IA exportado");
 }
 
-// --------------------------------------------------------------------------
-// 15. NAVEGACIÓN ENTRE VISTAS Y TEMA VISUAL
-// --------------------------------------------------------------------------
 const VIEW_TITLES = {
-  "view-dashboard": "Centro de Telemetría & Diagnóstico Ejecutivo",
-  "view-ingesta": "Ingesta Automática de 3 Libros Excel & Linaje de Llaves Foráneas (FK)",
-  "view-visualizar": "Visualizar — Registros Completos de los 3 Libros de Excel Separados",
-  "view-ia": "Motor Predictivo de IA — Punto de Reorden & Scoring de Proveedores",
-  "view-catalogo": "Catálogo Maestro de Inventario & Rayos-X Landed Cost",
-  "view-sql": "Laboratorio SQL en Vivo (SQLite3 WebAssembly) & Exportación",
+  "view-dashboard": "UniControl — Panel General & Diagnóstico Ejecutivo",
+  "view-ingesta": "UniControl — Ingesta de 3 Libros Excel & Relaciones entre Registros",
+  "view-visualizar": "UniControl — Registros Completos de los 3 Libros de Excel Separados",
+  "view-ia": "UniControl — Motor Predictivo de IA & Scoring de Proveedores",
+  "view-catalogo": "UniControl — Catálogo Maestro de Inventario & Costos de Importación",
+  "view-sql": "UniControl — Laboratorio SQL en Vivo (SQLite3 WebAssembly)",
 };
+
+function toggleSidebar() {
+  const shell = document.getElementById("app-shell") || document.querySelector(".app-shell");
+  if (!shell) return;
+
+  if (window.innerWidth <= 1024) {
+    shell.classList.toggle("sidebar-mobile-open");
+  } else {
+    shell.classList.toggle("sidebar-collapsed");
+    setTimeout(() => {
+      renderCharts();
+    }, 260);
+  }
+}
+
+function closeMobileSidebar() {
+  const shell = document.getElementById("app-shell") || document.querySelector(".app-shell");
+  if (shell) {
+    shell.classList.remove("sidebar-mobile-open");
+  }
+}
 
 function switchView(viewId, btnEl) {
   document.querySelectorAll(".view-section").forEach((el) => el.classList.remove("active"));
@@ -2094,7 +2045,8 @@ function switchView(viewId, btnEl) {
     if (matchingBtn) matchingBtn.classList.add("active");
   }
 
-  document.getElementById("topbar-title").textContent = VIEW_TITLES[viewId] || "Torque-SQL Command Center";
+  document.getElementById("topbar-title").textContent = VIEW_TITLES[viewId] || "UniControl (Sistema de gestión universitario)";
+  closeMobileSidebar();
   renderCharts();
 
   if (viewId === "view-sql") {
@@ -2105,40 +2057,47 @@ function switchView(viewId, btnEl) {
 function toggleTheme() {
   const root = document.documentElement;
   const current = root.getAttribute("data-theme");
-  if (current === "light") {
+  if (current === "dark") {
     root.removeAttribute("data-theme");
-    notifyToast("info", "Modo Carbon Telemetry activado");
+    notifyToast("info", "Modo Claro Académico activado");
   } else {
-    root.setAttribute("data-theme", "light");
-    notifyToast("info", "Modo Daylight Industrial activado");
+    root.setAttribute("data-theme", "dark");
+    notifyToast("info", "Modo Oscuro Universitario activado");
   }
   renderCharts();
 }
 
-// --------------------------------------------------------------------------
-// 16. INICIALIZACIÓN AL CARGAR EL DOM
-// --------------------------------------------------------------------------
 window.addEventListener("DOMContentLoaded", async () => {
-  // 1. Construir base relacional desde los 3 libros Excel
   buildRelationalDatabase();
   renderAllViews();
 
-  // 2. Cargar preset inicial en el editor SQL
   const editor = document.getElementById("sql-query-editor");
-  if (editor) editor.value = PRESET_SQL_QUERIES.join_fk;
+  if (editor) editor.value = PRESET_SQL_QUERIES.join_relaciones;
 
-  // 3. Inicializar SQL.js (SQLite3 WebAssembly) en segundo plano para consultas SQL nativas
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeMobileSidebar();
+      closePurchaseOrderModal();
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 1024) {
+      closeMobileSidebar();
+    }
+  });
+
   if (typeof initSqlJs !== "undefined") {
     try {
       AppState.SQL = await initSqlJs({
         locateFile: (file) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}`,
       });
       syncInBrowserSqlite();
-      document.getElementById("sql-engine-badge").textContent = "SQLite3 WASM Activo";
+      document.getElementById("sql-engine-badge").textContent = "SQLite3";
     } catch (e) {
       console.warn("SQL.js fallback activo:", e);
     }
   }
 
-  notifyToast("success", "3 Libros Excel sincronizados en BD SQL con FKs validadas");
+  notifyToast("success", "UniControl sincronizado: 3 Excels y relaciones validadas");
 });

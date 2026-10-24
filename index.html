@@ -3,146 +3,146 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TORQUE-SQL // Sistema Inteligente de Abastecimiento Automotriz & Motor Relacional FK</title>
+  <title>UniControl (Sistema de gestión universitario)</title>
 
-  <!-- Tipografía Técnica Industrial: Space Grotesk + Plus Jakarta Sans + JetBrains Mono -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/png" href="images.png" />
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon" />
 
-  <!-- Librerías Frontend de Grado Industrial (SweetAlert2, Chart.js, SheetJS XLSX, SQLite3 WASM) -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
 
-  <!-- Hoja de Estilos Táctica Personalizada -->
   <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
 <body>
-  <div class="app-shell">
-    <!-- ====================================================================
-         RIEL LATERAL DE TELEMETRÍA Y NAVEGACIÓN
-         ==================================================================== -->
-    <aside class="sidebar">
+  <div class="app-shell" id="app-shell">
+    <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeMobileSidebar()"></div>
+
+    <aside class="sidebar" id="app-sidebar" aria-label="Navegación principal UniControl">
       <div class="brand-header">
-        <div class="brand-emblem">TQ</div>
-        <div>
-          <div class="brand-title">TORQUE-SQL <span style="font-size:10px; padding:2px 6px; background:rgba(245,158,11,0.18); color:var(--accent-amber); border-radius:4px; font-family:var(--font-mono)">v2.6</span></div>
-          <div class="brand-subtitle">Supply Chain &amp; FK Engine</div>
+        <div class="brand-identity">
+          <div class="brand-emblem" title="UniControl (Sistema de gestión universitario)">
+            <img src="images.png" alt="UniControl" onerror="this.style.display='none'; this.parentElement.textContent='UC';" />
+          </div>
+          <div class="brand-text">
+            <div class="brand-title">UniControl</div>
+            <div class="brand-subtitle">Sistema de gestión universitario</div>
+          </div>
         </div>
+        <button type="button" class="sidebar-close-mobile" onclick="closeMobileSidebar()" aria-label="Cerrar menú lateral" title="Cerrar menú">
+          ✕
+        </button>
       </div>
 
-      <div class="nav-section-label">Módulos Operativos</div>
+      <div class="nav-section-label">Módulos del Sistema</div>
       <ul class="nav-list">
         <li>
-          <button class="nav-btn active" data-target="view-dashboard" onclick="switchView('view-dashboard', this)">
+          <button class="nav-btn active" data-target="view-dashboard" onclick="switchView('view-dashboard', this)" title="Panel General & Diagnóstico">
             <span class="nav-btn-left">
               <span class="nav-icon">◈</span>
-              <span>Telemetría &amp; Diagnóstico</span>
+              <span class="nav-label">Panel &amp; Diagnóstico</span>
             </span>
-            <span class="nav-badge cyan">LIVE</span>
+            <span class="nav-badge cyan">ACTIVO</span>
           </button>
         </li>
         <li>
-          <button class="nav-btn" data-target="view-ingesta" onclick="switchView('view-ingesta', this)">
+          <button class="nav-btn" data-target="view-ingesta" onclick="switchView('view-ingesta', this)" title="Ingesta Excel & Relaciones">
             <span class="nav-btn-left">
               <span class="nav-icon">⛁</span>
-              <span>Ingesta Excel &amp; FKs</span>
+              <span class="nav-label">Ingesta Excel &amp; Relaciones</span>
             </span>
-            <span class="nav-badge" id="nav-badge-fk">7/7 OK</span>
+            <span class="nav-badge" id="nav-badge-relaciones">7/7 OK</span>
           </button>
         </li>
         <li>
-          <button class="nav-btn" data-target="view-visualizar" onclick="switchView('view-visualizar', this)">
+          <button class="nav-btn" data-target="view-visualizar" onclick="switchView('view-visualizar', this)" title="Visualizar Libros Excel">
             <span class="nav-btn-left">
               <span class="nav-icon">⊞</span>
-              <span>Visualizar</span>
+              <span class="nav-label">Visualizar Excels</span>
             </span>
             <span class="nav-badge cyan" id="nav-badge-visualizar">3 Excels</span>
           </button>
         </li>
         <li>
-          <button class="nav-btn" data-target="view-ia" onclick="switchView('view-ia', this)">
+          <button class="nav-btn" data-target="view-ia" onclick="switchView('view-ia', this)" title="Motor IA & Punto de Reorden">
             <span class="nav-btn-left">
               <span class="nav-icon">⚡</span>
-              <span>Motor IA &amp; Recompra</span>
+              <span class="nav-label">Motor IA &amp; Recompra</span>
             </span>
             <span class="nav-badge critical" id="nav-badge-alertas">6 Crít</span>
           </button>
         </li>
         <li>
-          <button class="nav-btn" data-target="view-catalogo" onclick="switchView('view-catalogo', this)">
+          <button class="nav-btn" data-target="view-catalogo" onclick="switchView('view-catalogo', this)" title="Catálogo & Landed Cost">
             <span class="nav-btn-left">
               <span class="nav-icon">❖</span>
-              <span>Catálogo &amp; Landed Cost</span>
+              <span class="nav-label">Catálogo &amp; Costos</span>
             </span>
             <span class="nav-badge" id="nav-badge-productos">14</span>
           </button>
         </li>
         <li>
-          <button class="nav-btn" data-target="view-sql" onclick="switchView('view-sql', this)">
+          <button class="nav-btn" data-target="view-sql" onclick="switchView('view-sql', this)" title="Laboratorio SQL en Vivo">
             <span class="nav-btn-left">
               <span class="nav-icon">⌘</span>
-              <span>Laboratorio SQL Vivo</span>
+              <span class="nav-label">Laboratorio SQL</span>
             </span>
             <span class="nav-badge cyan" id="sql-engine-badge">SQLite3</span>
           </button>
         </li>
       </ul>
 
-      <div class="nav-section-label">Acciones Rápidas</div>
-      <div style="padding:0 10px; display:flex; flex-direction:column; gap:5px; flex-shrink:0">
-        <button class="btn-tactical cyan" style="width:100%; justify-content:center; padding:6px 10px; font-size:11.5px" onclick="exportIAPurchaseOrdersExcel()">
+      <div class="nav-section-label">Exportación &amp; Reportes</div>
+      <div class="sidebar-quick-actions">
+        <button class="btn-tactical cyan" style="width:100%; justify-content:center; padding:7px 10px; font-size:12.5px" onclick="exportIAPurchaseOrdersExcel()">
           ↓ Exportar OC Sugeridas (.xlsx)
         </button>
-        <button class="btn-tactical" style="width:100%; justify-content:center; padding:6px 10px; font-size:11.5px" onclick="downloadSqliteBinaryDb()">
+        <button class="btn-tactical" style="width:100%; justify-content:center; padding:7px 10px; font-size:12.5px" onclick="downloadSqliteBinaryDb()">
           ↓ Descargar Base SQLite (.db)
         </button>
-        <button class="btn-tactical" style="width:100%; justify-content:center; padding:6px 10px; font-size:11.5px" onclick="downloadSqlDump()">
+        <button class="btn-tactical" style="width:100%; justify-content:center; padding:7px 10px; font-size:12.5px" onclick="downloadSqlDump()">
           ↓ Descargar Script DDL+Seed (.sql)
         </button>
       </div>
 
-      <!-- Estado en vivo de los 3 Libros Excel en la Base de Datos -->
       <div class="sidebar-telemetry">
-        <div style="font-family:var(--font-mono); font-size:10px; color:var(--accent-amber); text-transform:uppercase; margin-bottom:6px; display:flex; align-items:center">
-          <span class="status-dot"></span> ESTADO RELACIONAL ACTIVO
+        <div style="font-size:11px; font-weight:700; color:var(--accent-primary); text-transform:uppercase; margin-bottom:6px; display:flex; align-items:center">
+          <span class="status-dot"></span> Estado Relacional Activo
         </div>
         <div class="telemetry-row">
           <span style="color:var(--text-secondary)">PRODUCTOS.xlsx</span>
-          <span style="font-family:var(--font-mono)" id="side-count-prod">14 registros</span>
+          <span id="side-count-prod">14 registros</span>
         </div>
         <div class="telemetry-row">
           <span style="color:var(--text-secondary)">PROVEEDORES.xlsx</span>
-          <span style="font-family:var(--font-mono)" id="side-count-prov">4 registros</span>
+          <span id="side-count-prov">4 registros</span>
         </div>
         <div class="telemetry-row">
           <span style="color:var(--text-secondary)">FACTURACION.xlsx</span>
-          <span style="font-family:var(--font-mono)" id="side-count-fact">7 líneas</span>
+          <span id="side-count-fact">7 líneas</span>
         </div>
         <div class="telemetry-row" style="padding-top:5px; border-top:1px solid var(--border-subtle); margin-top:5px">
-          <span style="color:var(--text-muted)">PRAGMA foreign_keys</span>
-          <span style="font-family:var(--font-mono); color:var(--accent-emerald); font-weight:700">ON (0 Errores)</span>
+          <span style="color:var(--text-muted)">Integridad referencial</span>
+          <span style="color:var(--accent-emerald); font-weight:700">ACTIVA (0 Errores)</span>
         </div>
       </div>
     </aside>
 
-    <!-- ====================================================================
-         ÁREA PRINCIPAL DE OPERACIONES
-         ==================================================================== -->
     <div class="main-area">
-      <!-- Barra Superior -->
       <header class="topbar">
         <div class="topbar-left">
-          <h1 class="view-breadcrumb" id="topbar-title">Centro de Telemetría &amp; Diagnóstico Ejecutivo</h1>
-          <span class="fk-pill">✓ Integridad FK: 100% Relacionada</span>
+          <button type="button" id="sidebar-toggle-btn" class="sidebar-toggle-btn" onclick="toggleSidebar()" aria-label="Mostrar u ocultar menú lateral" title="Mostrar / Ocultar menú lateral">
+            ☰
+          </button>
+          <h1 class="view-breadcrumb" id="topbar-title">UniControl — Panel General &amp; Diagnóstico Ejecutivo</h1>
+          <span class="status-pill">✓ Integridad referencial: 100% Relacionada</span>
         </div>
         <div class="topbar-actions">
           <button class="btn-tactical" onclick="resetToOriginalExcels()" title="Restaurar datos originales de los 3 libros Excel">
             ↻ Restaurar 3 Excels Base
           </button>
-          <button class="btn-tactical" onclick="toggleTheme()">
+          <button class="btn-tactical" onclick="toggleTheme()" title="Alternar entre modo claro y oscuro">
             ◐ Cambiar Tema
           </button>
           <button class="btn-tactical primary" onclick="switchView('view-ia')">
@@ -152,16 +152,12 @@
       </header>
 
       <main class="workspace-body">
-        <!-- ================================================================
-             VISTA 1: CENTRO DE TELEMETRÍA Y DIAGNÓSTICO EJECUTIVO
-             ================================================================ -->
         <section id="view-dashboard" class="view-section active">
-          <!-- Tarjetas KPI -->
           <div class="kpi-grid">
             <div class="kpi-card">
               <div class="kpi-label">
-                <span>VALOR INVENTARIO (LANDED COST)</span>
-                <span style="color:var(--accent-amber)">[SQL SUM]</span>
+                <span>Valor Inventario (Landed Cost)</span>
+                <span style="color:var(--accent-primary)">SQL SUM</span>
               </div>
               <div class="kpi-value" id="kpi-valor-costo">$0.00</div>
               <div class="kpi-sub" id="kpi-valor-venta">Venta proyectada: $0.00</div>
@@ -169,8 +165,8 @@
 
             <div class="kpi-card emerald">
               <div class="kpi-label">
-                <span>UTILIDAD BRUTA POTENCIAL</span>
-                <span style="color:var(--accent-emerald)">[MARGEN]</span>
+                <span>Utilidad Bruta Potencial</span>
+                <span style="color:var(--accent-emerald)">Margen</span>
               </div>
               <div class="kpi-value" id="kpi-utilidad">$0.00</div>
               <div class="kpi-sub" id="kpi-margen-pct">Margen promedio: +0%</div>
@@ -178,8 +174,8 @@
 
             <div class="kpi-card crimson">
               <div class="kpi-label">
-                <span>CAPITAL REQUERIDO RECOMPRA (IA)</span>
-                <span style="color:var(--accent-crimson)">[REORDER POINT]</span>
+                <span>Capital Requerido Recompra (IA)</span>
+                <span style="color:var(--accent-crimson)">Reorden</span>
               </div>
               <div class="kpi-value" id="kpi-inversion-ia">$0.00</div>
               <div class="kpi-sub" id="kpi-alertas-resumen">0 críticos · 0 preventivos</div>
@@ -187,20 +183,19 @@
 
             <div class="kpi-card cyan">
               <div class="kpi-label">
-                <span>INTEGRIDAD REFERENCIAL (FKs)</span>
-                <span style="color:var(--accent-cyan)">[SQLITE PRAGMA]</span>
+                <span>Integridad Referencial</span>
+                <span style="color:var(--accent-cyan)">SQLite</span>
               </div>
-              <div class="kpi-value" id="kpi-fk-integridad">100% VÁLIDO</div>
-              <div class="kpi-sub" id="kpi-fk-sub">7 FKs vinculadas · 3 Auto-Curadas</div>
+              <div class="kpi-value" id="kpi-integridad">100% VÁLIDO</div>
+              <div class="kpi-sub" id="kpi-integridad-sub">7 relaciones vinculadas · 3 Auto-Curadas</div>
             </div>
           </div>
 
-          <!-- Gráficos gemelos -->
           <div class="grid-equal">
             <div class="panel" style="margin-bottom:0">
               <div class="panel-header">
                 <div>
-                  <div class="panel-title">Estrutura Landed Cost vs. Precio de Venta</div>
+                  <div class="panel-title">Estructura Landed Cost vs. Precio de Venta</div>
                   <div class="panel-subtitle">Costo FOB + Gastos Aduanales (Flete, Arancel, Impuestos, Almacén) vs. PVP</div>
                 </div>
                 <span class="code-chip">PRODUCTOS.xlsx</span>
@@ -213,10 +208,10 @@
             <div class="panel" style="margin-bottom:0">
               <div class="panel-header">
                 <div>
-                  <div class="panel-title">Telemetría de Inventario vs. Punto de Reorden IA</div>
+                  <div class="panel-title">Nivel de Inventario vs. Punto de Reorden IA</div>
                   <div class="panel-subtitle">Rojo = Stock Crítico (≤ Mínimo) · Ámbar = Preventivo · Verde = Óptimo</div>
                 </div>
-                <span class="code-chip">MODELO EOQ / IA</span>
+                <span class="code-chip">Modelo EOQ / IA</span>
               </div>
               <div class="panel-body" style="height:310px">
                 <canvas id="chart-stock-health"></canvas>
@@ -226,11 +221,10 @@
 
           <div style="height:20px"></div>
 
-          <!-- Tabla de Alertas de Reabastecimiento Inmediato -->
           <div class="panel">
             <div class="panel-header">
               <div>
-                <div class="panel-title">⚡ Alertas Prioritarias de Abastecimiento (¿Qué, Cuánto y a Quién Comprar?)</div>
+                <div class="panel-title">Alertas Prioritarias de Abastecimiento (¿Qué, Cuánto y a Quién Comprar?)</div>
                 <div class="panel-subtitle">Cruce automático de Existencia Actual vs. Stock Mínimo y Selección de Proveedor por Score IA</div>
               </div>
               <button class="btn-tactical cyan" onclick="switchView('view-ia')">Abrir Simulador IA Completo →</button>
@@ -240,11 +234,11 @@
                 <thead>
                   <tr>
                     <th>Nivel Alerta</th>
-                    <th>Accesorio Automotriz (PK/FK)</th>
+                    <th>Producto / Accesorio</th>
                     <th>Existencia vs. Mínimo</th>
                     <th>Pedido Sugerido IA</th>
                     <th>Inversión Landed</th>
-                    <th>Proveedor Óptimo (FK_Prov)</th>
+                    <th>Proveedor Óptimo</th>
                     <th>Acción</th>
                   </tr>
                 </thead>
@@ -253,26 +247,25 @@
             </div>
           </div>
 
-          <!-- Tabla de Facturación Reciente con FKs -->
           <div class="panel">
             <div class="panel-header">
               <div>
-                <div class="panel-title">⛁ Últimas Facturas y Cotizaciones Relacionadas (FACTURACION.xlsx)</div>
-                <div class="panel-subtitle">Cada línea de factura fue vinculada automáticamente a su Proveedor (FK) y Producto (FK)</div>
+                <div class="panel-title">Últimas Facturas y Cotizaciones Relacionadas (FACTURACION.xlsx)</div>
+                <div class="panel-subtitle">Cada línea de factura fue vinculada automáticamente a su Proveedor y Producto</div>
               </div>
-              <button class="btn-tactical" onclick="switchView('view-ingesta')">Inspeccionar Linaje FK →</button>
+              <button class="btn-tactical" onclick="switchView('view-ingesta')">Inspeccionar Relaciones →</button>
             </div>
             <div class="table-responsive">
               <table class="telemetry-table">
                 <thead>
                   <tr>
                     <th>Documento / Fecha</th>
-                    <th>Proveedor Relacionado (FK)</th>
-                    <th>Producto Relacionado (FK)</th>
+                    <th>Proveedor Relacionado</th>
+                    <th>Producto Relacionado</th>
                     <th>Cant.</th>
                     <th>Precio Unit.</th>
                     <th>Total Línea</th>
-                    <th>Método Vinculación FK</th>
+                    <th>Método Vinculación</th>
                   </tr>
                 </thead>
                 <tbody id="dash-facturas-tbody"></tbody>
@@ -281,117 +274,108 @@
           </div>
         </section>
 
-        <!-- ================================================================
-             VISTA 2: INGESTA DE LOS 3 LIBROS EXCEL Y LINAJE DE LLAVES FORÁNEAS
-             ================================================================ -->
         <section id="view-ingesta" class="view-section">
           <div class="panel">
             <div class="panel-header">
               <div>
                 <div class="panel-title">Bahías de Ingesta Automática (3 Libros Excel Separados → Base Relacional SQL)</div>
-                <div class="panel-subtitle">Arrastra o selecciona cualquiera de los 3 archivos .xlsx para actualizar en vivo las tablas y re-vincular las llaves foráneas</div>
+                <div class="panel-subtitle">Arrastra o selecciona cualquiera de los 3 archivos .xlsx para actualizar en vivo las tablas y re-vincular las relaciones entre registros</div>
               </div>
               <button class="btn-tactical" onclick="resetToOriginalExcels()">↻ Recargar Excels Originales del Proyecto</button>
             </div>
             <div class="panel-body">
               <div class="grid-3col" style="margin-bottom:0">
-                <!-- Bahía 1: PRODUCTOS.xlsx -->
                 <div class="upload-bay loaded">
                   <input type="file" accept=".xlsx,.xls" onchange="handleExcelFileUpload(event, 'PRODUCTOS')" />
                   <div class="bay-icon">📦</div>
-                  <div style="font-family:var(--font-display); font-weight:700; font-size:15px">1. Libro PRODUCTOS.xlsx</div>
-                  <div style="font-family:var(--font-mono); font-size:11.5px; color:var(--accent-emerald); margin:4px 0" id="bay-prod-filename">PRODUCTOS.xlsx (Cargado)</div>
-                  <div style="font-size:12px; color:var(--text-secondary)" id="bay-prod-stat">12 filas base · PK: id_producto</div>
+                  <div style="font-weight:700; font-size:15.5px">1. Libro PRODUCTOS.xlsx</div>
+                  <div style="font-size:12.5px; color:var(--accent-emerald); font-weight:600; margin:4px 0" id="bay-prod-filename">PRODUCTOS.xlsx (Cargado)</div>
+                  <div style="font-size:13px; color:var(--text-secondary)" id="bay-prod-stat">12 filas base · PK: id_producto</div>
                   <div style="margin-top:10px"><span class="code-chip">Clic o Arrastrar .xlsx</span></div>
                 </div>
 
-                <!-- Bahía 2: PROVEEDORES_COMPLETO_V2.xlsx -->
                 <div class="upload-bay loaded">
                   <input type="file" accept=".xlsx,.xls" onchange="handleExcelFileUpload(event, 'PROVEEDORES')" />
                   <div class="bay-icon">🚢</div>
-                  <div style="font-family:var(--font-display); font-weight:700; font-size:15px">2. Libro PROVEEDORES.xlsx</div>
-                  <div style="font-family:var(--font-mono); font-size:11.5px; color:var(--accent-emerald); margin:4px 0" id="bay-prov-filename">PROVEEDORES_COMPLETO_V2 (1).xlsx</div>
-                  <div style="font-size:12px; color:var(--text-secondary)" id="bay-prov-stat">3 filas base · PK: id_proveedor</div>
+                  <div style="font-weight:700; font-size:15.5px">2. Libro PROVEEDORES.xlsx</div>
+                  <div style="font-size:12.5px; color:var(--accent-emerald); font-weight:600; margin:4px 0" id="bay-prov-filename">PROVEEDORES_COMPLETO_V2 (1).xlsx</div>
+                  <div style="font-size:13px; color:var(--text-secondary)" id="bay-prov-stat">3 filas base · PK: id_proveedor</div>
                   <div style="margin-top:10px"><span class="code-chip">Clic o Arrastrar .xlsx</span></div>
                 </div>
 
-                <!-- Bahía 3: FACTURACION.xlsx -->
                 <div class="upload-bay loaded">
                   <input type="file" accept=".xlsx,.xls" onchange="handleExcelFileUpload(event, 'FACTURACION')" />
                   <div class="bay-icon">🧾</div>
-                  <div style="font-family:var(--font-display); font-weight:700; font-size:15px">3. Libro FACTURACION.xlsx</div>
-                  <div style="font-family:var(--font-mono); font-size:11.5px; color:var(--accent-emerald); margin:4px 0" id="bay-fact-filename">FACTURACION.xlsx (Cargado)</div>
-                  <div style="font-size:12px; color:var(--text-secondary)" id="bay-fact-stat">7 líneas · Resuelve FK_Prov y FK_Prod</div>
+                  <div style="font-weight:700; font-size:15.5px">3. Libro FACTURACION.xlsx</div>
+                  <div style="font-size:12.5px; color:var(--accent-emerald); font-weight:600; margin:4px 0" id="bay-fact-filename">FACTURACION.xlsx (Cargado)</div>
+                  <div style="font-size:13px; color:var(--text-secondary)" id="bay-fact-stat">7 líneas · Vincula proveedor y producto</div>
                   <div style="margin-top:10px"><span class="code-chip">Clic o Arrastrar .xlsx</span></div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Bitácora de Auto-Curación de Llaves Foráneas (FK Auto-Healing) -->
           <div class="panel">
             <div class="panel-header">
               <div>
-                <div class="panel-title">🛡️ Eventos de Auto-Curación de Integridad Referencial (FK Auto-Heal)</div>
+                <div class="panel-title">Eventos de Auto-Curación de Integridad Referencial</div>
                 <div class="panel-subtitle">Registros que venían en FACTURACION.xlsx pero no existían en las tablas maestras y fueron dados de alta automáticamente</div>
               </div>
-              <span class="status-badge autoheal">0 Violaciones de FK</span>
+              <span class="status-badge autoheal">0 Inconsistencias de relación</span>
             </div>
             <div class="panel-body">
-              <div class="grid-3col" id="fk-audit-cards" style="margin-bottom:0"></div>
+              <div class="grid-3col" id="auditoria-cards" style="margin-bottom:0"></div>
             </div>
           </div>
 
-          <!-- Simulador de Inserción de Nueva Factura con Resolución Automática de FK -->
           <div class="panel">
             <div class="panel-header">
               <div>
-                <div class="panel-title">➕ Probar Inserción Relacional en Vivo (Simular Nueva Línea de Factura)</div>
-                <div class="panel-subtitle">Comprueba cómo el motor toma el nombre del proveedor y producto y les asigna sus Foreign Keys automáticamente</div>
+                <div class="panel-title">Probar Inserción Relacional en Vivo (Simular Nueva Línea de Factura)</div>
+                <div class="panel-subtitle">Comprueba cómo el motor toma el nombre del proveedor y producto y les asigna sus relaciones automáticamente</div>
               </div>
             </div>
             <div class="panel-body">
               <form onsubmit="handleInsertarFacturaVivo(event)" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap:12px; align-items:end">
                 <div>
-                  <label style="display:block; font-size:11px; font-family:var(--font-mono); color:var(--text-secondary); margin-bottom:4px">NO. FACTURA / OC</label>
+                  <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px">NO. FACTURA / OC</label>
                   <input type="text" id="new-fact-num" class="tactical-input" style="width:100%" placeholder="Ej. INV-2026-990" required />
                 </div>
                 <div>
-                  <label style="display:block; font-size:11px; font-family:var(--font-mono); color:var(--text-secondary); margin-bottom:4px">PROVEEDOR (FK)</label>
+                  <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px">PROVEEDOR</label>
                   <select id="new-fact-prov" class="tactical-select" style="width:100%"></select>
                 </div>
                 <div>
-                  <label style="display:block; font-size:11px; font-family:var(--font-mono); color:var(--text-secondary); margin-bottom:4px">PRODUCTO (FK)</label>
+                  <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px">PRODUCTO</label>
                   <select id="new-fact-prod" class="tactical-select" style="width:100%"></select>
                 </div>
                 <div>
-                  <label style="display:block; font-size:11px; font-family:var(--font-mono); color:var(--text-secondary); margin-bottom:4px">CANTIDAD</label>
+                  <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px">CANTIDAD</label>
                   <input type="number" id="new-fact-cant" class="tactical-input" style="width:100%" value="10" min="1" required />
                 </div>
                 <div>
-                  <label style="display:block; font-size:11px; font-family:var(--font-mono); color:var(--text-secondary); margin-bottom:4px">COSTO UNIT. ($)</label>
+                  <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px">COSTO UNIT. ($)</label>
                   <input type="number" step="0.01" id="new-fact-precio" class="tactical-input" style="width:100%" value="59.18" required />
                 </div>
                 <div>
-                  <button type="submit" class="btn-tactical primary" style="width:100%; justify-content:center; height:36px">
-                    + Insertar con FK
+                  <button type="submit" class="btn-tactical primary" style="width:100%; justify-content:center; height:38px">
+                    + Insertar con relaciones
                   </button>
                 </div>
               </form>
             </div>
           </div>
 
-          <!-- Matriz Completa de Trazabilidad de Llaves Foráneas -->
           <div class="panel">
             <div class="panel-header">
               <div>
                 <div class="panel-title">Matriz de Trazabilidad Relacional (Cruce de los 3 Libros Excel)</div>
                 <div class="panel-subtitle">Muestra cómo cada fila de FACTURACION.xlsx se conectó con PROVEEDORES.xlsx y PRODUCTOS.xlsx</div>
               </div>
-              <div style="display:flex; gap:8px">
-                <button class="btn-tactical" onclick="AppState.filtroLinajeFK='ALL'; renderFKLineageView(); notifyToast('info','Mostrando todas las relaciones FK')">Todas</button>
-                <button class="btn-tactical" onclick="AppState.filtroLinajeFK='EXACT'; renderFKLineageView(); notifyToast('info','Filtrando coincidencias exactas')">Match Catálogo</button>
-                <button class="btn-tactical cyan" onclick="AppState.filtroLinajeFK='AUTO'; renderFKLineageView(); notifyToast('info','Mostrando FKs auto-curadas')">Auto-Curadas (FK)</button>
+              <div style="display:flex; gap:8px; flex-wrap:wrap">
+                <button class="btn-tactical" onclick="AppState.filtroRelaciones='ALL'; renderRelacionesView(); notifyToast('info','Mostrando todas las relaciones')">Todas</button>
+                <button class="btn-tactical" onclick="AppState.filtroRelaciones='EXACT'; renderRelacionesView(); notifyToast('info','Filtrando coincidencias exactas')">Match Catálogo</button>
+                <button class="btn-tactical cyan" onclick="AppState.filtroRelaciones='AUTO'; renderRelacionesView(); notifyToast('info','Mostrando relaciones auto-curadas')">Auto-Curadas</button>
               </div>
             </div>
             <div class="table-responsive">
@@ -399,28 +383,24 @@
                 <thead>
                   <tr>
                     <th>ID Detalle / Factura</th>
-                    <th>Mapeo Proveedor (Excel → FK SQL)</th>
-                    <th>Mapeo Producto (Excel → FK SQL)</th>
-                    <th>Categoría (FK)</th>
+                    <th>Mapeo Proveedor (Excel → Base de datos)</th>
+                    <th>Mapeo Producto (Excel → Base de datos)</th>
+                    <th>Categoría</th>
                     <th>Operación Comercial</th>
-                    <th>Resolución FK</th>
+                    <th>Resolución del vínculo</th>
                   </tr>
                 </thead>
-                <tbody id="fk-lineage-tbody"></tbody>
+                <tbody id="relaciones-tbody"></tbody>
               </table>
             </div>
           </div>
         </section>
 
-        <!-- ================================================================
-             VISTA NUEVA: VISUALIZAR (LOS 3 LIBROS DE EXCEL SEPARADOS)
-             ================================================================ -->
         <section id="view-visualizar" class="view-section">
-          <!-- Barra de Control y Filtro Rápido de Libros Excel -->
           <div class="panel">
             <div class="panel-header">
               <div>
-                <div class="panel-title">⊞ Visor Íntegro de los 3 Libros de Excel Separados</div>
+                <div class="panel-title">Visor Íntegro de los 3 Libros de Excel Separados</div>
                 <div class="panel-subtitle">Inspecciona todos los registros y columnas originales de cada libro Excel por separado tal como fueron cargados</div>
               </div>
               <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center">
@@ -435,29 +415,28 @@
                   Ver los 3 Libros (Separados)
                 </button>
                 <button class="btn-tactical" id="btn-vis-prod" onclick="setLibroVisorFilter('PRODUCTOS')">
-                  📦 Libro 1: PRODUCTOS
+                  Libro 1: PRODUCTOS
                 </button>
                 <button class="btn-tactical" id="btn-vis-prov" onclick="setLibroVisorFilter('PROVEEDORES')">
-                  🚢 Libro 2: PROVEEDORES
+                  Libro 2: PROVEEDORES
                 </button>
                 <button class="btn-tactical" id="btn-vis-fact" onclick="setLibroVisorFilter('FACTURACION')">
-                  🧾 Libro 3: FACTURACIÓN
+                  Libro 3: FACTURACIÓN
                 </button>
               </div>
             </div>
           </div>
 
-          <!-- LIBRO 1 SEPARADO: PRODUCTOS.XLSX -->
           <div class="panel" id="vis-panel-productos">
-            <div class="panel-header" style="border-left: 4px solid var(--accent-amber)">
+            <div class="panel-header" style="border-left: 4px solid var(--accent-primary)">
               <div>
                 <div class="panel-title">
-                  <span>📦 LIBRO 1: PRODUCTOS.xlsx</span>
+                  <span>LIBRO 1: PRODUCTOS.xlsx</span>
                   <span class="code-chip" id="vis-count-productos">12 registros</span>
                 </div>
                 <div class="panel-subtitle">Todos los registros y las 18 columnas originales del archivo Excel de Productos / Inventario</div>
               </div>
-              <span class="fk-tag">Tabla SQL: productos (PK: id_producto)</span>
+              <span class="relation-tag">Tabla SQL: productos (PK: id_producto)</span>
             </div>
             <div class="table-responsive">
               <table class="telemetry-table">
@@ -467,17 +446,16 @@
             </div>
           </div>
 
-          <!-- LIBRO 2 SEPARADO: PROVEEDORES_COMPLETO_V2 (1).XLSX -->
           <div class="panel" id="vis-panel-proveedores">
             <div class="panel-header" style="border-left: 4px solid var(--accent-cyan)">
               <div>
                 <div class="panel-title">
-                  <span>🚢 LIBRO 2: PROVEEDORES_COMPLETO_V2 (1).xlsx</span>
+                  <span>LIBRO 2: PROVEEDORES_COMPLETO_V2 (1).xlsx</span>
                   <span class="code-chip" id="vis-count-proveedores">3 registros</span>
                 </div>
                 <div class="panel-subtitle">Todos los registros y las 10 columnas originales del archivo Excel de Proveedores</div>
               </div>
-              <span class="fk-tag">Tabla SQL: proveedores (PK: id_proveedor)</span>
+              <span class="relation-tag">Tabla SQL: proveedores (PK: id_proveedor)</span>
             </div>
             <div class="table-responsive">
               <table class="telemetry-table">
@@ -487,17 +465,16 @@
             </div>
           </div>
 
-          <!-- LIBRO 3 SEPARADO: FACTURACION.XLSX -->
           <div class="panel" id="vis-panel-facturacion">
             <div class="panel-header" style="border-left: 4px solid var(--accent-emerald)">
               <div>
                 <div class="panel-title">
-                  <span>🧾 LIBRO 3: FACTURACION.xlsx</span>
+                  <span>LIBRO 3: FACTURACION.xlsx</span>
                   <span class="code-chip" id="vis-count-facturacion">7 registros</span>
                 </div>
-                <div class="panel-subtitle">Todos los registros y las 14 columnas originales del archivo Excel de Facturación + Llaves Foráneas asignadas</div>
+                <div class="panel-subtitle">Todos los registros y las 14 columnas originales del archivo Excel de Facturación + relaciones asignadas</div>
               </div>
-              <span class="fk-tag">Tablas SQL: documentos_compra &amp; detalle_compras (FK_Prov + FK_Prod)</span>
+              <span class="relation-tag">Tablas SQL: documentos_compra &amp; detalle_compras (Proveedor + Producto)</span>
             </div>
             <div class="table-responsive">
               <table class="telemetry-table">
@@ -508,19 +485,15 @@
           </div>
         </section>
 
-        <!-- ================================================================
-             VISTA 3: MOTOR PREDICTIVO DE IA — PUNTO DE REORDEN Y SCORING
-             ================================================================ -->
         <section id="view-ia" class="view-section">
           <div class="grid-2col">
-            <!-- Panel Izquierdo: Simulador de Parámetros IA y Gráfico de Proveedores -->
             <div class="panel" style="margin-bottom:0">
               <div class="panel-header">
                 <div>
-                  <div class="panel-title">🎛️ Simulador de Ponderación Multicriterio IA &amp; Demanda</div>
+                  <div class="panel-title">Simulador de Ponderación Multicriterio IA &amp; Demanda</div>
                   <div class="panel-subtitle">Ajusta los pesos del algoritmo para recalcular el Score de Proveedores y el Punto de Reorden</div>
                 </div>
-                <span class="code-chip">SCORING DINÁMICO</span>
+                <span class="code-chip">Scoring Dinámico</span>
               </div>
               <div class="panel-body">
                 <div class="grid-equal" style="margin-bottom:10px">
@@ -565,26 +538,25 @@
               </div>
             </div>
 
-            <!-- Panel Derecho: Copiloto IA de Compras en Lenguaje Natural -->
             <div class="panel" style="margin-bottom:0">
               <div class="panel-header">
                 <div>
-                  <div class="panel-title">🤖 Copiloto IA de Abastecimiento Automotriz</div>
-                  <div class="panel-subtitle">Consulta en lenguaje natural sobre stock crítico, márgenes, proveedores o llaves foráneas</div>
+                  <div class="panel-title">Asistente IA de Gestión &amp; Abastecimiento — UniControl</div>
+                  <div class="panel-subtitle">Consulta en lenguaje natural sobre stock crítico, márgenes, proveedores o relaciones entre datos</div>
                 </div>
               </div>
-              <div class="panel-body" style="padding:12px">
+              <div class="panel-body" style="padding:14px">
                 <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px">
-                  <button class="btn-tactical" style="font-size:11px; padding:4px 8px" onclick="askCopilotIA('¿Qué productos están en stock crítico y cuánto debemos comprar?')">¿Qué comprar urgente?</button>
-                  <button class="btn-tactical" style="font-size:11px; padding:4px 8px" onclick="askCopilotIA('¿Cuál es el mejor proveedor según el Score de IA?')">¿A quién comprar?</button>
-                  <button class="btn-tactical" style="font-size:11px; padding:4px 8px" onclick="askCopilotIA('¿Cuál es el accesorio con mayor margen de ganancia?')">Mayor rentabilidad</button>
-                  <button class="btn-tactical" style="font-size:11px; padding:4px 8px" onclick="askCopilotIA('¿Cómo se resolvieron las llaves foráneas de PROD-013 e IAM?')">Explicar FKs</button>
+                  <button class="btn-tactical" style="font-size:12px; padding:5px 10px" onclick="askCopilotIA('¿Qué productos están en stock crítico y cuánto debemos comprar?')">¿Qué comprar urgente?</button>
+                  <button class="btn-tactical" style="font-size:12px; padding:5px 10px" onclick="askCopilotIA('¿Cuál es el mejor proveedor según el Score de IA?')">¿A quién comprar?</button>
+                  <button class="btn-tactical" style="font-size:12px; padding:5px 10px" onclick="askCopilotIA('¿Cuál es el accesorio con mayor margen de ganancia?')">Mayor rentabilidad</button>
+                  <button class="btn-tactical" style="font-size:12px; padding:5px 10px" onclick="askCopilotIA('¿Cómo se vincularon los registros de PROD-013 e IAM?')">Explicar vínculos</button>
                 </div>
 
                 <div class="copilot-box">
                   <div class="copilot-messages" id="copilot-messages">
                     <div class="msg-bubble ai">
-                      <b>Sistema IA TORQUE-SQL inicializado.</b> He analizado los <b>14 productos</b>, los <b>4 proveedores</b> y las <b>7 líneas de facturación</b>. Actualmente hay <b>6 accesorios en nivel CRÍTICO</b> que requieren orden de compra. Selecciona una pregunta rápida arriba o escribe tu consulta.
+                      <b>UniControl (Sistema de gestión universitario) inicializado.</b> He analizado los <b>14 productos</b>, los <b>4 proveedores</b> y las <b>7 líneas de facturación</b>. Actualmente hay <b>6 ítems en nivel CRÍTICO</b> que requieren orden de compra. Selecciona una consulta rápida arriba o escribe tu pregunta.
                     </div>
                   </div>
                   <div class="copilot-input-row">
@@ -598,11 +570,10 @@
 
           <div style="height:20px"></div>
 
-          <!-- Tabla Maestra de Recomendaciones de IA -->
           <div class="panel">
             <div class="panel-header">
               <div>
-                <div class="panel-title">📋 Matriz Completa de Recomendaciones de Recompra y Asignación de Proveedor (IA)</div>
+                <div class="panel-title">Matriz Completa de Recomendaciones de Recompra y Asignación de Proveedor (IA)</div>
                 <div class="panel-subtitle">Responde automáticamente: 1) ¿Qué comprar? · 2) ¿Cuándo y cuánto comprar? · 3) ¿A qué proveedor comprar?</div>
               </div>
               <button class="btn-tactical emerald" onclick="exportIAPurchaseOrdersExcel()">↓ Descargar Plan de Compras IA (.xlsx)</button>
@@ -615,7 +586,7 @@
                     <th>Producto / Categoría</th>
                     <th>Inventario</th>
                     <th>Cobertura Estimada</th>
-                    <th>Proveedor Recomendado (FK)</th>
+                    <th>Proveedor Recomendado</th>
                     <th>Cant. a Pedir</th>
                     <th>Inversión Landed</th>
                     <th>Justificación Algorítmica IA</th>
@@ -628,46 +599,42 @@
           </div>
         </section>
 
-        <!-- ================================================================
-             VISTA 4: CATÁLOGO MAESTRO E INSPECTOR DE COSTOS DE IMPORTACIÓN
-             ================================================================ -->
         <section id="view-catalogo" class="view-section">
-          <!-- Formulario de Alta Rápida de Producto con Cálculo Automático de Landed Cost y FK -->
           <div class="panel">
             <div class="panel-header">
               <div>
-                <div class="panel-title">➕ Alta Rápida de Nuevo Producto en Catálogo (Con FK a Categoría y Cálculo Landed Cost)</div>
-                <div class="panel-subtitle">Inserta un nuevo accesorio automotriz validando su llave foránea de categoría y calculando aranceles e impuestos automáticamente</div>
+                <div class="panel-title">Alta Rápida de Nuevo Producto en Catálogo (Con vínculo a Categoría y Cálculo Landed Cost)</div>
+                <div class="panel-subtitle">Inserta un nuevo registro en el catálogo validando su categoría y calculando aranceles e impuestos automáticamente</div>
               </div>
             </div>
             <div class="panel-body">
               <form onsubmit="handleInsertarProductoVivo(event)" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap:12px; align-items:end">
                 <div>
-                  <label style="display:block; font-size:11px; font-family:var(--font-mono); color:var(--text-secondary); margin-bottom:4px">CÓDIGO SKU</label>
+                  <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px">CÓDIGO SKU</label>
                   <input type="text" id="new-prod-sku" class="tactical-input" style="width:100%" placeholder="Ej. HU-9980" required />
                 </div>
                 <div>
-                  <label style="display:block; font-size:11px; font-family:var(--font-mono); color:var(--text-secondary); margin-bottom:4px">NOMBRE DEL ACCESORIO</label>
+                  <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px">NOMBRE DEL PRODUCTO</label>
                   <input type="text" id="new-prod-nombre" class="tactical-input" style="width:100%" placeholder="Ej. Winch Eléctrico 12000 Lb" required />
                 </div>
                 <div>
-                  <label style="display:block; font-size:11px; font-family:var(--font-mono); color:var(--text-secondary); margin-bottom:4px">CATEGORÍA (FK)</label>
+                  <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px">CATEGORÍA</label>
                   <select id="new-prod-cat" class="tactical-select" style="width:100%"></select>
                 </div>
                 <div>
-                  <label style="display:block; font-size:11px; font-family:var(--font-mono); color:var(--text-secondary); margin-bottom:4px">MARCA</label>
+                  <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px">MARCA</label>
                   <input type="text" id="new-prod-marca" class="tactical-input" style="width:100%" value="HUNTER 4X4" required />
                 </div>
                 <div>
-                  <label style="display:block; font-size:11px; font-family:var(--font-mono); color:var(--text-secondary); margin-bottom:4px">COSTO FOB ($)</label>
+                  <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px">COSTO FOB ($)</label>
                   <input type="number" step="0.01" id="new-prod-costo" class="tactical-input" style="width:100%" value="95.00" required />
                 </div>
                 <div>
-                  <label style="display:block; font-size:11px; font-family:var(--font-mono); color:var(--text-secondary); margin-bottom:4px">EXISTENCIA INICIAL</label>
+                  <label style="display:block; font-size:12px; font-weight:700; color:var(--text-secondary); margin-bottom:4px">EXISTENCIA INICIAL</label>
                   <input type="number" id="new-prod-stock" class="tactical-input" style="width:100%" value="5" min="0" required />
                 </div>
                 <div>
-                  <button type="submit" class="btn-tactical primary" style="width:100%; justify-content:center; height:36px">
+                  <button type="submit" class="btn-tactical primary" style="width:100%; justify-content:center; height:38px">
                     + Guardar en BD SQL
                   </button>
                 </div>
@@ -678,7 +645,7 @@
           <div class="panel">
             <div class="panel-header">
               <div>
-                <div class="panel-title">❖ Catálogo Maestro de Inventario &amp; Rayos-X de Costos de Importación (Landed Cost)</div>
+                <div class="panel-title">Catálogo Maestro de Inventario &amp; Desglose de Costos de Importación (Landed Cost)</div>
                 <div class="panel-subtitle">Visualiza la composición exacta de cada producto: Costo FOB + Flete + Aranceles + Impuestos + Almacenaje</div>
               </div>
               <div style="display:flex; gap:10px; flex-wrap:wrap">
@@ -689,7 +656,7 @@
                   oninput="AppState.busquedaTexto = this.value; renderCatalogoView()"
                 />
                 <select class="tactical-select" onchange="AppState.filtroCategoria = this.value; renderCatalogoView(); notifyToast('info', 'Filtro de categoría aplicado')">
-                  <option value="ALL">Todas las Categorías (FK)</option>
+                  <option value="ALL">Todas las Categorías</option>
                   <option value="CAT-EXT">CAT-EXT — Exterior y Carrocería 4x4</option>
                   <option value="CAT-ACC">CAT-ACC — Accesorios Generales</option>
                   <option value="CAT-DEF">CAT-DEF — Defensas y Roll Bars</option>
@@ -710,8 +677,8 @@
                 <thead>
                   <tr>
                     <th>ID / SKU</th>
-                    <th>Accesorio Automotriz / Bodega</th>
-                    <th>Relaciones FK</th>
+                    <th>Producto / Bodega</th>
+                    <th>Relaciones</th>
                     <th>Desglose Landed Cost (FOB + Aduana)</th>
                     <th>Precio Venta &amp; Margen</th>
                     <th>Existencia</th>
@@ -723,18 +690,15 @@
           </div>
         </section>
 
-        <!-- ================================================================
-             VISTA 5: LABORATORIO SQL EN VIVO (SQLITE WEBASSEMBLY)
-             ================================================================ -->
         <section id="view-sql" class="view-section">
           <div class="panel">
             <div class="panel-header">
               <div>
-                <div class="panel-title">⌘ Consola SQL Relacional en Vivo (Motor SQLite3 WebAssembly)</div>
+                <div class="panel-title">Consola SQL Relacional en Vivo (Motor SQLite3 WebAssembly)</div>
                 <div class="panel-subtitle">Ejecuta consultas SQL reales (SELECT, JOIN, GROUP BY, PRAGMA) directamente sobre las 6 tablas y 3 vistas creadas desde los Excels</div>
               </div>
               <div style="display:flex; gap:8px; flex-wrap:wrap">
-                <button class="btn-tactical" onclick="loadPresetSql('join_fk')">1. JOIN Completo de FKs</button>
+                <button class="btn-tactical" onclick="loadPresetSql('join_relaciones')">1. JOIN Completo de relaciones</button>
                 <button class="btn-tactical" onclick="loadPresetSql('ia_reorden')">2. Vista Alertas IA</button>
                 <button class="btn-tactical" onclick="loadPresetSql('rentabilidad')">3. Rentabilidad Landed Cost</button>
                 <button class="btn-tactical" onclick="loadPresetSql('proveedores_score')">4. Ranking Proveedores</button>
@@ -743,8 +707,8 @@
             <div class="panel-body">
               <textarea id="sql-query-editor" class="sql-editor" spellcheck="false"></textarea>
               <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; flex-wrap:wrap; gap:10px">
-                <span style="font-family:var(--font-mono); font-size:12px; color:var(--accent-cyan)" id="sql-exec-meta">SQLite3 WASM listo para ejecutar</span>
-                <div style="display:flex; gap:10px">
+                <span style="font-size:13px; font-weight:600; color:var(--accent-cyan)" id="sql-exec-meta">SQLite3 WASM listo para ejecutar</span>
+                <div style="display:flex; gap:10px; flex-wrap:wrap">
                   <button class="btn-tactical" onclick="downloadSqlDump()">↓ Descargar Script .SQL</button>
                   <button class="btn-tactical cyan" onclick="downloadSqliteBinaryDb()">↓ Descargar Archivo .DB (SQLite)</button>
                   <button class="btn-tactical primary" onclick="executeLiveSql()">▶ Ejecutar Sentencia SQL</button>
@@ -769,9 +733,6 @@
     </div>
   </div>
 
-  <!-- ======================================================================
-       MODAL DE EMISIÓN DE ORDEN DE COMPRA INTELIGENTE (IA)
-       ====================================================================== -->
   <div id="po-modal-backdrop" class="modal-backdrop-custom" onclick="if(event.target===this) closePurchaseOrderModal()">
     <div class="modal-card">
       <div class="panel-body" id="po-modal-content"></div>
@@ -784,7 +745,6 @@
     </div>
   </div>
 
-  <!-- Lógica Principal de la Aplicación -->
   <script src="assets/js/app.js"></script>
 </body>
 </html>

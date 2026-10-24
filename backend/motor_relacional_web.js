@@ -1,13 +1,3 @@
-/**
- * ============================================================================
- * MOTOR PORTÁTIL DE INGESTA EXCEL -> SQL RELACIONAL (FKs) + IA (WEB & VERCEL)
- * ============================================================================
- * Este módulo permite procesar en vivo los 3 archivos Excel desde cualquier PC
- * (tanto en local como desplegado en Vercel), resolviendo automáticamente las
- * llaves foráneas (FK) entre Proveedores, Productos y Facturación, ejecutando
- * consultas SQL sobre SQLite (sql.js / API) y calculando el modelo de IA.
- */
-
 export function normalizeText(str) {
   if (!str) return "";
   return String(str)
@@ -28,10 +18,6 @@ export const CATEGORIAS_BASE = {
   "CAT-RIN": { id_categoria: "CAT-RIN", nombre_categoria: "Rines y Llantas", stock_minimo_default: 8, factor_seguridad: 1.5 },
 };
 
-/**
- * Calcula el Score Multicriterio de IA para un proveedor (0 a 100 puntos)
- * Ponderación: Calidad (40%) + Cumplimiento (35%) + Velocidad de Entrega (25%)
- */
 export function calcularScoreProveedorIA(calidad, cumplimientoPct, diasEntrega) {
   const scoreCalidad = (calidad / 5.0) * 40.0;
   const scoreCumplimiento = (cumplimientoPct / 100.0) * 35.0;
@@ -39,17 +25,12 @@ export function calcularScoreProveedorIA(calidad, cumplimientoPct, diasEntrega) 
   return Number((scoreCalidad + scoreCumplimiento + scoreTiempo).toFixed(2));
 }
 
-/**
- * Procesa las 3 hojas de Excel (arrays de objetos JSON) y construye el modelo
- * relacional completo con resolución automática de Foreign Keys (Auto-Healing FK)
- */
 export function procesarTresExcelsRelacional(filasProductos, filasProveedores, filasFacturacion) {
   const categorias = { ...CATEGORIAS_BASE };
   const proveedoresMap = new Map();
   let maxProvId = 0;
   const logsVinculacion = [];
 
-  // 1. Procesar Proveedores (Tabla Padre 1)
   for (const row of filasProveedores) {
     const idProv = Number(row["No."] || row["id_proveedor"] || ++maxProvId);
     if (idProv > maxProvId) maxProvId = idProv;
@@ -99,7 +80,6 @@ export function procesarTresExcelsRelacional(filasProductos, filasProveedores, f
     });
   }
 
-  // Helper para resolver FK de proveedor por nombre o marca
   const resolverProveedorId = (nombreOMarca, fechaRef = "2026-01-27") => {
     const norm = normalizeText(nombreOMarca);
     for (const [id, prov] of proveedoresMap.entries()) {
@@ -112,7 +92,6 @@ export function procesarTresExcelsRelacional(filasProductos, filasProveedores, f
     if (/WHEEL/.test(norm)) return 3;
     if (/FORTUNE|FPI/.test(norm)) return 2;
 
-    // Auto-Heal FK: Si es un proveedor nuevo en Facturación, lo registra automáticamente
     maxProvId++;
     const dias = 14;
     const cal = 4.5;
@@ -142,7 +121,6 @@ export function procesarTresExcelsRelacional(filasProductos, filasProveedores, f
     return maxProvId;
   };
 
-  // 2. Procesar Productos (Tabla Padre 2)
   const productosMap = new Map();
   let maxProdNum = 0;
 
@@ -208,7 +186,6 @@ export function procesarTresExcelsRelacional(filasProductos, filasProveedores, f
     });
   }
 
-  // 3. Procesar Facturación (Tablas Hijas: documentos_compra y detalle_compras)
   const documentosMap = new Map();
   const detalleCompras = [];
   let docCounter = 0;
@@ -228,7 +205,7 @@ export function procesarTresExcelsRelacional(filasProductos, filasProveedores, f
     const iva13 = Number(Number(row["IVA 13%"] || 0).toFixed(2));
     const totalLinea = Number(Number(row["Total"] || cantidad * precioUnit).toFixed(2));
 
-    const idProvFK = resolverProveedorId(nomProv, fecha);
+    const idProvRef = resolverProveedorId(nomProv, fecha);
 
     if (!documentosMap.has(numFact)) {
       docCounter++;
@@ -237,7 +214,7 @@ export function procesarTresExcelsRelacional(filasProductos, filasProveedores, f
         numero_factura: numFact,
         fecha,
         tipo_documento: tipoDoc,
-        id_proveedor: idProvFK,
+        id_proveedor: idProvRef,
         numero_cotizacion: String(row["No. Cotización"] || row["No. Cotizacion"] || ""),
         orden_compra: String(row["Orden de Compra"] || ""),
         subtotal_documento: 0,
@@ -251,28 +228,27 @@ export function procesarTresExcelsRelacional(filasProductos, filasProveedores, f
     docObj.iva_documento = Number((docObj.iva_documento + iva13).toFixed(2));
     docObj.total_documento = Number((docObj.subtotal_documento + docObj.iva_documento).toFixed(2));
 
-    // Resolver FK de Producto
     const normDesc = normalizeText(descFactura);
-    let idProdFK = null;
+    let idProdRef = null;
     let metodoVinc = "MATCH_EXACTO_CATALOGO";
 
     for (const [idP, prod] of productosMap.entries()) {
       const nNom = normalizeText(prod.nombre);
       const nFull = normalizeText(prod.descripcion);
       if (nNom === normDesc || nFull.includes(normDesc) || normDesc.includes(nNom)) {
-        idProdFK = idP;
+        idProdRef = idP;
         break;
       }
       if (normDesc.includes("15X7") && nFull.includes("15X7")) {
-        idProdFK = idP;
+        idProdRef = idP;
         metodoVinc = "MATCH_ESPECIFICACION_TECNICA";
         break;
       }
     }
 
-    if (!idProdFK) {
+    if (!idProdRef) {
       maxProdNum++;
-      idProdFK = `PROD-${String(maxProdNum).padStart(3, "0")}`;
+      idProdRef = `PROD-${String(maxProdNum).padStart(3, "0")}`;
       metodoVinc = "AUTO_ALTA_DESDE_FACTURA";
       const idCat = /ROLL BAR/i.test(normDesc) ? "CAT-DEF" : "CAT-EXT";
       const flete = Number((precioUnit * 0.07).toFixed(2));
@@ -282,13 +258,13 @@ export function procesarTresExcelsRelacional(filasProductos, filasProveedores, f
       const totalComp = Number((precioUnit + flete + aranceles + impuestos + almacen).toFixed(2));
       const precioVta = Number((totalComp * 1.5).toFixed(2));
 
-      productosMap.set(idProdFK, {
-        id_producto: idProdFK,
+      productosMap.set(idProdRef, {
+        id_producto: idProdRef,
         codigo_sku: `IMP-${maxProdNum}`,
         nombre: descFactura,
         descripcion: `${descFactura} (Incorporado automáticamente desde Facturación)`,
         id_categoria: idCat,
-        id_proveedor_preferido: idProvFK,
+        id_proveedor_preferido: idProvRef,
         marca: /ROLL BAR/i.test(normDesc) ? "IAM TRADING" : "IMPORT",
         costo_unitario: precioUnit,
         costo_flete: flete,
@@ -315,8 +291,8 @@ export function procesarTresExcelsRelacional(filasProductos, filasProveedores, f
       id_detalle: detCounter,
       id_documento: docObj.id_documento,
       numero_factura: numFact,
-      id_producto: idProdFK,
-      id_proveedor: idProvFK,
+      id_producto: idProdRef,
+      id_proveedor: idProvRef,
       descripcion_factura: descFactura,
       cantidad,
       precio_unitario: precioUnit,
@@ -329,7 +305,6 @@ export function procesarTresExcelsRelacional(filasProductos, filasProveedores, f
     });
   }
 
-  // 4. Ejecutar Motor de IA (Recomendaciones de Compra y Punto de Reorden)
   const recomendacionesIA = [];
   let recCounter = 0;
 
