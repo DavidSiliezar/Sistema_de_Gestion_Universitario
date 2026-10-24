@@ -1490,14 +1490,44 @@ function updateIASimulator() {
 function clearCopilotChat() {
   const msgBox = document.getElementById("copilot-messages");
   if (!msgBox) return;
+  AppState.copilotCatalogPage = 0;
   const rel = AppState.relational;
   const critCount = rel ? rel.recomendaciones_ia.filter((r) => r.nivel_alerta === "CRITICO").length : 6;
   msgBox.innerHTML = `
     <div class="msg-bubble ai">
-      <b>Historial de conversación reiniciado.</b> Tengo cargados en memoria <b>${rel ? rel.productos.length : 14} productos</b>, <b>${rel ? rel.proveedores.length : 4} proveedores</b> y <b>${rel ? rel.detalle_compras.length : 7} líneas de facturación</b> (${critCount} en estado crítico). Escribe cualquier pregunta sobre productos, precios, facturas, proveedores, fórmulas, SQL o temas generales.
+      <b>Historial de conversación reiniciado.</b> Tengo cargados en memoria <b>${rel ? rel.productos.length : 14} productos</b>, <b>${rel ? rel.proveedores.length : 4} proveedores</b> y <b>${rel ? rel.detalle_compras.length : 7} líneas de facturación</b> (${critCount} en estado crítico). Escribe cualquier pregunta sobre la arquitectura del sistema, catálogo paso a paso, precios, facturas, proveedores, fórmulas o SQL.
     </div>
   `;
   notifyToast("info", "Chat de IA reiniciado");
+}
+
+function formatCatalogPage(pageNum = 1) {
+  const rel = AppState.relational;
+  const pageSize = 5;
+  const totalItems = rel.productos.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(Math.max(1, pageNum), totalPages);
+  AppState.copilotCatalogPage = safePage;
+
+  const startIdx = (safePage - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, totalItems);
+  const slice = rel.productos.slice(startIdx, endIdx);
+
+  const itemsHtml = slice
+    .map((p, idx) => {
+      const num = startIdx + idx + 1;
+      const rec = rel.recomendaciones_ia.find((r) => r.id_producto === p.id_producto);
+      const estado = rec ? rec.nivel_alerta : "OPTIMO";
+      return `<b>${num}. [${p.id_producto}] ${p.nombre}</b><br>&nbsp;&nbsp;&nbsp;SKU: <code>${p.codigo_sku}</code> · Marca: <b>${p.marca}</b> · Stock: <b>${p.existencia} uds</b> (${estado}) · Landed: ${formatUSD(p.precio_total_compra)} · Venta: <b>${formatUSD(p.precio_venta)}</b>`;
+    })
+    .join("<br>");
+
+  const nextBtnHtml =
+    safePage < totalPages
+      ? `<div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap"><button type="button" class="btn-tactical cyan" style="font-size:11.5px; padding:4px 10px" onclick="askCopilotIA('Mostrar catálogo bloque ${safePage + 1}')">▶ Ver siguiente bloque (Parte ${safePage + 1} de ${totalPages}: Productos ${endIdx + 1} al ${Math.min(endIdx + pageSize, totalItems)})</button></div>`
+      : `<div style="margin-top:8px; font-size:12px; color:var(--accent-emerald); display:flex; align-items:center; gap:8px; flex-wrap:wrap"><span>✓ Catálogo completo visualizado (${totalItems} de ${totalItems} productos).</span><button type="button" class="btn-tactical" style="font-size:11px; padding:3px 8px" onclick="askCopilotIA('Mostrar catálogo bloque 1')">↺ Volver al Bloque 1</button></div>`;
+
+  return `<b>Catálogo Disponible — Bloque ${safePage} de ${totalPages} (Productos ${startIdx + 1} al ${endIdx} de ${totalItems}):</b><br>${itemsHtml}${nextBtnHtml}`;
 }
 
 function buildSmartCopilotAnswer(rawQuery) {
@@ -1514,7 +1544,7 @@ function buildSmartCopilotAnswer(rawQuery) {
       const { columns, values } = res[0];
       const topRows = values.slice(0, 8);
       const preview = topRows
-        .map((row) => `• ` + row.map((v, idx) => `<b>${columns[idx]}:</b> ${v === null ? "NULL" : v}`).join(" · "))
+        .map((row, rIdx) => `<b>${rIdx + 1}.</b> ` + row.map((v, idx) => `<b>${columns[idx]}:</b> ${v === null ? "NULL" : v}`).join(" · "))
         .join("<br>");
       return `<b>Resultado SQL en Vivo (${values.length} filas):</b><br>${preview}${values.length > 8 ? `<br><i>...mostrando primeras 8 de ${values.length} filas.</i>` : ""}`;
     } catch (err) {
@@ -1541,13 +1571,77 @@ function buildSmartCopilotAnswer(rawQuery) {
     } catch (e) {}
   }
 
+  const blockMatch = qNorm.match(/\b(?:BLOQUE|PARTE|PAGINA)\s*(\d+)\b/);
+  if (blockMatch) {
+    return formatCatalogPage(Number(blockMatch[1]));
+  }
+
+  if (
+    qNorm === "SIGUIENTE" ||
+    qNorm === "VER MAS" ||
+    qNorm === "CONTINUAR" ||
+    qNorm.includes("SIGUIENTE BLOQUE") ||
+    qNorm.includes("MOSTRAR MAS")
+  ) {
+    const nextPage = (AppState.copilotCatalogPage || 1) + 1;
+    return formatCatalogPage(nextPage);
+  }
+
+  if (
+    qNorm.includes("CATALOGO") ||
+    qNorm.includes("LISTA DE PRODUCTOS") ||
+    qNorm.includes("TODOS LOS PRODUCTOS") ||
+    qNorm.includes("PRODUCTOS DISPONIBLES") ||
+    qNorm.includes("QUE PRODUCTOS HAY") ||
+    qNorm.includes("CUALES PRODUCTOS") ||
+    qNorm.includes("VER PRODUCTOS") ||
+    qNorm.includes("MOSTRAR PRODUCTOS")
+  ) {
+    return formatCatalogPage(1);
+  }
+
+  if (
+    qNorm.includes("COMO ESTA HECHO") ||
+    qNorm.includes("COMO SE HIZO") ||
+    qNorm.includes("COMO FUE HECHO") ||
+    qNorm.includes("ARQUITECTURA") ||
+    qNorm.includes("TECNOLOGIA") ||
+    qNorm.includes("BACKEND") ||
+    qNorm.includes("FRONTEND") ||
+    qNorm.includes("DONDE ESTA ALOJADA") ||
+    qNorm.includes("ALOJAMIENTO") ||
+    qNorm.includes("BASE DE DATOS UTILIZA") ||
+    qNorm.includes("DESPLIEGUE") ||
+    qNorm.includes("GITHUB") ||
+    qNorm.includes("VERCEL") ||
+    qNorm.includes("FUNCIONAMIENTO DEL PROYECTO") ||
+    qNorm.includes("EXPLICACION GENERAL")
+  ) {
+    return `<b>Arquitectura Técnica, Backend, Base de Datos y Despliegue de UniControl:</b><br>
+    <b>1. Frontend y UI/UX:</b> Construido con <b>HTML5 Semántico</b> (arquitectura SPA de 6 vistas), <b>CSS3 Custom Properties</b> (CSS Grid/Flexbox, Modo Claro/Oscuro, tipografía global <i>Times New Roman</i>, Sidebar retráctil) y <b>JavaScript ES2023+</b> acompañado de <b>Chart.js 4.4.2</b> (gráficos interactivos), <b>SheetJS 0.18.5</b> (procesamiento y exportación nativa de libros <code>.xlsx</code>) y <b>SweetAlert2</b>.<br>
+    <b>2. Arquitectura Backend (Controladores y Servicios):</b> Implementa una arquitectura <b>Serverless / Edge-Client MVC</b> en <code>app.js</code> dividida en servicios y controladores modulares:
+    <br>&nbsp;&nbsp;• <i>Controlador ETL e Ingesta (<code>buildRelationalDatabase</code>, <code>handleExcelFileUpload</code>):</i> Normaliza los 3 libros Excel y aplica auto-curación referencial (<i>Auto-Healing</i>).
+    <br>&nbsp;&nbsp;• <i>Servicio Financiero y Motor IA (<code>calcSupplierScore</code>, <code>updateIASimulator</code>):</i> Calcula costos de importación <i>Landed Cost</i>, evaluación multicriterio de proveedores y punto de reorden (EOQ).
+    <br>&nbsp;&nbsp;• <i>Controlador Transaccional (<code>confirmAndExecutePurchaseOrder</code>, <code>handleInsertarFacturaVivo</code>):</i> Ejecuta inserciones relacionales en vivo.<br>
+    <b>3. Motor de Base de Datos y Alojamiento:</b> Utiliza <b>SQLite3 Relacional (SQL.js 1.10.3 compilado en WebAssembly <code>.wasm</code>)</b> en Tercera Forma Normal (3FN), estructurado en <b>6 tablas</b> (<code>categorias</code>, <code>proveedores</code>, <code>productos</code>, <code>documentos_compra</code>, <code>detalle_compras</code>, <code>recomendaciones_ia</code>) y <b>3 vistas analíticas</b>, alimentado por los 3 libros Excel maestros integrados en el sistema. Se aloja en modalidad <b>Serverless In-Memory en la nube sobre Vercel</b>, conectándose con el núcleo del sistema mediante el <b>driver nativo WebAssembly (<code>AppState.sqliteDb</code>)</b> con exportación directa a <code>.db</code> y <code>.sql</code>.<br>
+    <b>4. Despliegue en la Nube (CI/CD):</b> Desplegado en la nube con <b>Vercel</b> mediante un flujo de <b>Integración y Despliegue Continuo (CI/CD)</b> conectado directamente al repositorio de <b>GitHub</b>.`;
+  }
+
   if (/^(HOLA|BUENOS DIAS|BUENAS TARDES|BUENAS NOCHES|SALUDOS|HEY|QUE TAL|COMO ESTAS)\b/.test(qNorm) && qNorm.split(" ").length <= 5) {
     const criticos = rel.recomendaciones_ia.filter((r) => r.nivel_alerta === "CRITICO").length;
-    return `<b>¡Hola! Soy el Asistente de Inteligencia Artificial de UniControl.</b><br>Estoy conectado en tiempo real a los 3 libros de Excel y al motor relacional SQLite3. Puedo responderte cualquier consulta sobre:<br>• <b>Productos específicos</b> (por código, SKU, marca, vehículo o nombre, ej. <i>"Hilux"</i>, <i>"L200"</i>, <i>"PROD-008"</i>).<br>• <b>Proveedores y tiempos de importación</b> (Panamá, Tailandia, Asia).<br>• <b>Facturas, cotizaciones e IVA</b>.<br>• <b>Precios, márgenes, Landed Cost y punto de reorden</b> (actualmente hay <b>${criticos} alertas críticas</b>).<br>• <b>Cálculos matemáticos, consultas SQL o preguntas conceptuales</b>. ¿Qué deseas consultar?`;
+    return `<b>¡Hola! Soy el Asistente de Inteligencia Artificial de UniControl.</b><br>Estoy conectado en tiempo real a los 3 libros de Excel y al motor relacional SQLite3. Puedo responderte de forma ordenada sobre:<br>
+    <b>1. Arquitectura y Tecnologías:</b> Cómo está hecho el sistema, su backend, base de datos SQLite3 y despliegue en Vercel + GitHub.<br>
+    <b>2. Catálogo Paso a Paso:</b> Lista numerada por bloques de los ${rel.productos.length} productos disponibles.<br>
+    <b>3. Consultas de Productos y Proveedores:</b> Búsqueda por código, SKU, marca, vehículo, país o Score IA.<br>
+    <b>4. Finanzas, Facturas y Recompra:</b> Landed Cost, márgenes, facturas comerciales y las <b>${criticos} alertas críticas</b> actuales.`;
   }
 
   if (qNorm.includes("QUIEN ERES") || qNorm.includes("QUE ERES") || qNorm.includes("QUE PUEDES HACER") || qNorm.includes("CUALES SON TUS FUNCIONES") || qNorm.includes("RESPONDER CUALQUIER") || qNorm === "AYUDA") {
-    return `<b>Capacidad Multiconsulta del Asistente IA — UniControl:</b><br>Soy un motor analítico y conversacional integrado que inspecciona en vivo las 6 tablas SQL y los 3 libros de Excel del sistema. Puedo responder:<br>1. <b>Búsqueda puntual de cualquier ítem:</b> Pregúntame por cualquier accesorio, código (<code>PROD-001</code> a <code>PROD-014</code>), SKU o vehículo (<i>Yaris, Hilux, L200, Frontier, Triton</i>).<br>2. <b>Finanzas y Costos de Importación:</b> Producto más caro, más barato, desglose FOB + Aduana (Landed Cost), utilidad bruta y ROI.<br>3. <b>Trazabilidad de Facturación:</b> Detalle de facturas comerciales, cotizaciones, órdenes de compra e impuestos (IVA 13%).<br>4. <b>Evaluación de Proveedores:</b> Ranking por Score IA, contacto, correo, NIT y tiempos de entrega.<br>5. <b>Ejecución SQL y Calculadora:</b> Escribe una sentencia <code>SELECT ...</code> o una operación matemática y la resolveré al instante.`;
+    return `<b>Capacidad Multiconsulta del Asistente IA — UniControl:</b><br>
+    <b>1. Información Técnica del Proyecto:</b> Pregúntame <i>"¿Cómo está hecho el sistema?"</i>, <i>"¿Qué base de datos utiliza?"</i> o <i>"¿Qué tecnologías usa el backend y frontend?"</i>.<br>
+    <b>2. Catálogo Estructurado por Bloques:</b> Pregúntame <i>"Muéstrame el catálogo disponible"</i> y te presentaré los productos en una lista numerada paso a paso sin saturar la pantalla.<br>
+    <b>3. Búsqueda de Productos, Proveedores y Facturas:</b> Consulta cualquier código (<code>PROD-001</code> a <code>PROD-014</code>), modelo (<i>Hilux, L200, Frontier, Yaris, Triton</i>), proveedor o factura.<br>
+    <b>4. Ejecución SQL y Calculadora:</b> Escribe una sentencia <code>SELECT ...</code> o un cálculo financiero y lo resolveré al instante.`;
   }
 
   const stopwords = new Set([
@@ -1573,17 +1667,17 @@ function buildSmartCopilotAnswer(rawQuery) {
     return prodTokens.some((tok) => qNorm.includes(tok));
   });
 
-  if (matchedProducts.length > 0 && matchedProducts.length <= 5 && !qNorm.includes("TODOS LOS PRODUCTOS")) {
+  if (matchedProducts.length > 0 && matchedProducts.length <= 5) {
     const cards = matchedProducts
-      .map((p) => {
+      .map((p, idx) => {
         const rec = rel.recomendaciones_ia.find((r) => r.id_producto === p.id_producto);
         const prov = rel.proveedores.find((pr) => pr.id_proveedor === p.id_proveedor_preferido);
         const gastosImp = Number((p.precio_total_compra - p.costo_unitario).toFixed(2));
-        return `• <b>${p.id_producto} — ${p.nombre}</b> (SKU: <code>${p.codigo_sku}</code> · Marca: <b>${p.marca}</b>)<br>
-        &nbsp;&nbsp;↳ <b>Inventario:</b> ${p.existencia} uds en ${p.ubicacion} (Mínimo: ${p.stock_minimo} · Reorden: ${p.punto_reorden} · Estado: <b>${rec ? rec.nivel_alerta : "OPTIMO"}</b>)<br>
-        &nbsp;&nbsp;↳ <b>Estructura de Costo:</b> FOB ${formatUSD(p.costo_unitario)} + Importación ${formatUSD(gastosImp)} (Flete ${formatUSD(p.costo_flete)}, Arancel ${formatUSD(p.aranceles_aduanales)}, Impuesto ${formatUSD(p.impuestos)}, Almacén ${formatUSD(p.almacenaje)}) = <b>Landed Cost: ${formatUSD(p.precio_total_compra)}</b><br>
-        &nbsp;&nbsp;↳ <b>Precio Venta:</b> <b>${formatUSD(p.precio_venta)}</b> · Ganancia Neta: <b>+${formatUSD(p.margen_unitario)} (+${p.margen_porcentaje}%)</b><br>
-        &nbsp;&nbsp;↳ <b>Abastecimiento IA:</b> ${rec && rec.cantidad_sugerida_compra > 0 ? `Pedir <b>${rec.cantidad_sugerida_compra} uds</b> (${formatUSD(rec.inversion_total_sugerida)})` : "Stock suficiente (0 uds a pedir)"} con <i>${prov ? prov.nombre : "Proveedor asignado"}</i>`;
+        return `<b>${idx + 1}. [${p.id_producto}] ${p.nombre}</b> (SKU: <code>${p.codigo_sku}</code> · Marca: <b>${p.marca}</b>)<br>
+        &nbsp;&nbsp;• <b>Inventario:</b> ${p.existencia} uds en ${p.ubicacion} (Mínimo: ${p.stock_minimo} · Reorden: ${p.punto_reorden} · Estado: <b>${rec ? rec.nivel_alerta : "OPTIMO"}</b>)<br>
+        &nbsp;&nbsp;• <b>Estructura de Costo:</b> FOB ${formatUSD(p.costo_unitario)} + Importación ${formatUSD(gastosImp)} (Flete ${formatUSD(p.costo_flete)}, Arancel ${formatUSD(p.aranceles_aduanales)}, Impuesto ${formatUSD(p.impuestos)}, Almacén ${formatUSD(p.almacenaje)}) = <b>Landed Cost: ${formatUSD(p.precio_total_compra)}</b><br>
+        &nbsp;&nbsp;• <b>Precio Venta:</b> <b>${formatUSD(p.precio_venta)}</b> · Ganancia Neta: <b>+${formatUSD(p.margen_unitario)} (+${p.margen_porcentaje}%)</b><br>
+        &nbsp;&nbsp;• <b>Abastecimiento IA:</b> ${rec && rec.cantidad_sugerida_compra > 0 ? `Pedir <b>${rec.cantidad_sugerida_compra} uds</b> (${formatUSD(rec.inversion_total_sugerida)})` : "Stock suficiente (0 uds a pedir)"} con <i>${prov ? prov.nombre : "Proveedor asignado"}</i>`;
       })
       .join("<br><br>");
     return `<b>Ficha Técnica y Financiera Encontrada (${matchedProducts.length} ${matchedProducts.length === 1 ? "producto" : "productos"}):</b><br>${cards}`;
@@ -1603,11 +1697,11 @@ function buildSmartCopilotAnswer(rawQuery) {
     const factsProv = rel.detalle_compras.filter((d) => d.id_proveedor === p.id_proveedor);
     const totalComprado = factsProv.reduce((acc, d) => acc + d.total_linea, 0);
     return `<b>Perfil Completo del Proveedor #${p.id_proveedor} — ${p.nombre}:</b><br>
-    • <b>País / Origen:</b> ${p.pais_origen} (${p.direccion})<br>
-    • <b>Contacto Comercial:</b> ${p.contacto} · <b>Correo:</b> ${p.correo} · <b>NIT:</b> ${p.nit}<br>
-    • <b>Condiciones:</b> ${p.condiciones_pago} · <b>Tipo:</b> ${p.tipo_contribuyente}<br>
-    • <b>Desempeño IA:</b> Score Global <b>${p.score_ia}/100</b> · Tiempo de Entrega: <b>${p.tiempo_entrega_dias} días</b> · Cumplimiento: <b>${p.cumplimiento_entregas_pct}%</b> · Calidad: <b>${p.calificacion_calidad}/5.0</b><br>
-    • <b>Relaciones en Base de Datos:</b> Abastece <b>${prodsProv.length} productos</b> del catálogo y registra <b>${factsProv.length} líneas de facturación</b> por un total de <b>${formatUSD(totalComprado)}</b>.`;
+    <b>1. País y Ubicación:</b> ${p.pais_origen} (${p.direccion})<br>
+    <b>2. Contacto Comercial:</b> ${p.contacto} · <b>Correo:</b> ${p.correo} · <b>NIT:</b> ${p.nit}<br>
+    <b>3. Condiciones:</b> ${p.condiciones_pago} · <b>Tipo:</b> ${p.tipo_contribuyente}<br>
+    <b>4. Desempeño IA:</b> Score Global <b>${p.score_ia}/100</b> · Entrega: <b>${p.tiempo_entrega_dias} días</b> · Cumplimiento: <b>${p.cumplimiento_entregas_pct}%</b> · Calidad: <b>${p.calificacion_calidad}/5.0</b><br>
+    <b>5. Operaciones Vinculadas:</b> Abastece <b>${prodsProv.length} productos</b> del catálogo y registra <b>${factsProv.length} líneas de facturación</b> por <b>${formatUSD(totalComprado)}</b>.`;
   }
 
   if (qNorm.includes("MAS CARO") || qNorm.includes("MAS BARATO") || qNorm.includes("PRECIOS EXTREMOS") || qNorm.includes("MAYOR PRECIO") || qNorm.includes("MENOR PRECIO") || qNorm.includes("ECONOMICO") || qNorm.includes("COSTOSO")) {
@@ -1616,11 +1710,11 @@ function buildSmartCopilotAnswer(rawQuery) {
     const segundoCaro = porPrecioDesc[1];
     const masBarato = porPrecioDesc[porPrecioDesc.length - 1];
     const promedioVenta = rel.productos.reduce((a, b) => a + b.precio_venta, 0) / rel.productos.length;
-    return `<b>Comparativa de Precios del Catálogo (${rel.productos.length} productos):</b><br>
-    • <b>Producto más caro:</b> <b>${masCaro.id_producto} — ${masCaro.nombre}</b> (Marca ${masCaro.marca}) con Precio de Venta de <b>${formatUSD(masCaro.precio_venta)}</b> y Landed Cost de <b>${formatUSD(masCaro.precio_total_compra)}</b>.<br>
-    • <b>Segundo más caro:</b> <b>${segundoCaro.id_producto} — ${segundoCaro.nombre}</b> con Precio de Venta de <b>${formatUSD(segundoCaro.precio_venta)}</b>.<br>
-    • <b>Producto más económico:</b> <b>${masBarato.id_producto} — ${masBarato.nombre}</b> con Precio de Venta de <b>${formatUSD(masBarato.precio_venta)}</b> y Landed Cost de <b>${formatUSD(masBarato.precio_total_compra)}</b>.<br>
-    • <b>Ticket promedio del catálogo:</b> <b>${formatUSD(promedioVenta)}</b>.`;
+    return `<b>Comparativa Ordenada de Precios del Catálogo (${rel.productos.length} productos):</b><br>
+    <b>1. Producto más caro:</b> <b>${masCaro.id_producto} — ${masCaro.nombre}</b> (Marca ${masCaro.marca}) · Venta: <b>${formatUSD(masCaro.precio_venta)}</b> · Landed Cost: <b>${formatUSD(masCaro.precio_total_compra)}</b>.<br>
+    <b>2. Segundo más caro:</b> <b>${segundoCaro.id_producto} — ${segundoCaro.nombre}</b> · Venta: <b>${formatUSD(segundoCaro.precio_venta)}</b>.<br>
+    <b>3. Producto más económico:</b> <b>${masBarato.id_producto} — ${masBarato.nombre}</b> · Venta: <b>${formatUSD(masBarato.precio_venta)}</b> · Landed Cost: <b>${formatUSD(masBarato.precio_total_compra)}</b>.<br>
+    <b>4. Precio promedio del catálogo:</b> <b>${formatUSD(promedioVenta)}</b>.`;
   }
 
   if (qNorm.includes("FACTURA") || qNorm.includes("COTIZACION") || qNorm.includes("IVA") || qNorm.includes("INV000") || qNorm.includes("EST-1019") || qNorm.includes("PED-046") || qNorm.includes("FPI-200")) {
@@ -1628,26 +1722,25 @@ function buildSmartCopilotAnswer(rawQuery) {
     const totalIva = rel.detalle_compras.reduce((a, d) => a + d.iva_monto, 0);
     const totalUnidadesFact = rel.detalle_compras.reduce((a, d) => a + d.cantidad, 0);
     const desglose = rel.detalle_compras
-      .map((d) => {
+      .map((d, idx) => {
         const prov = rel.proveedores.find((p) => p.id_proveedor === d.id_proveedor);
-        return `• <b>${d.numero_factura}</b>: ${d.cantidad} uds de <i>${d.descripcion_factura}</i> (${ d.id_producto }) → <b>${formatUSD(d.total_linea)}</b> + IVA ${formatUSD(d.iva_monto)} | Prov: ${prov ? prov.nombre : ""}`;
+        return `<b>${idx + 1}. [${d.numero_factura}]</b> ${d.cantidad} uds de <i>${d.descripcion_factura}</i> (${d.id_producto}) → <b>${formatUSD(d.total_linea)}</b> + IVA ${formatUSD(d.iva_monto)} | Prov: ${prov ? prov.nombre : ""}`;
       })
       .join("<br>");
-    return `<b>Auditoría de Facturación y Compras (FACTURACION.xlsx):</b><br>
-    Se registran <b>${rel.detalle_compras.length} líneas de compra</b> en <b>${rel.documentos_compra.length} documentos</b> (${totalUnidadesFact} unidades adquiridas):<br>
-    • <b>Subtotal Acumulado:</b> <b>${formatUSD(totalFacturado)}</b> · <b>IVA (13%):</b> <b>${formatUSD(totalIva)}</b><br><br>${desglose}`;
+    return `<b>Auditoría Numerada de Facturación y Compras (FACTURACION.xlsx):</b><br>
+    Total: <b>${rel.detalle_compras.length} líneas</b> en <b>${rel.documentos_compra.length} documentos</b> (${totalUnidadesFact} uds) · Subtotal: <b>${formatUSD(totalFacturado)}</b> · IVA (13%): <b>${formatUSD(totalIva)}</b>:<br>${desglose}`;
   }
 
   if (qNorm.includes("CATEGORIA") || qNorm.includes("CLASIFICACION") || qNorm.includes("DISTRIBUIDO") || qNorm.includes("CAT-")) {
     const resumenCat = rel.categorias
-      .map((c) => {
+      .map((c, idx) => {
         const items = rel.productos.filter((p) => p.id_categoria === c.id_categoria);
         const uds = items.reduce((a, b) => a + b.existencia, 0);
         const val = items.reduce((a, b) => a + b.existencia * b.precio_total_compra, 0);
-        return `• <b>${c.id_categoria} (${c.nombre_categoria}):</b> ${items.length} productos · ${uds} unidades · Valor Landed: <b>${formatUSD(val)}</b>`;
+        return `<b>${idx + 1}. ${c.id_categoria} — ${c.nombre_categoria}:</b> ${items.length} productos · ${uds} unidades · Valor Landed: <b>${formatUSD(val)}</b>`;
       })
       .join("<br>");
-    return `<b>Distribución del Inventario por Categorías (${rel.categorias.length} categorías):</b><br>${resumenCat}`;
+    return `<b>Distribución Ordenada por Categorías (${rel.categorias.length} categorías):</b><br>${resumenCat}`;
   }
 
   if (qNorm.includes("PREVENTIVO") || qNorm.includes("OPTIMO") || qNorm.includes("MAS STOCK") || qNorm.includes("MENOS STOCK") || qNorm.includes("MAYOR EXISTENCIA") || qNorm.includes("MENOR EXISTENCIA")) {
@@ -1656,29 +1749,29 @@ function buildSmartCopilotAnswer(rawQuery) {
     const opt = rel.recomendaciones_ia.filter((r) => r.nivel_alerta === "OPTIMO");
     const porStock = [...rel.productos].sort((a, b) => b.existencia - a.existencia);
     return `<b>Estado Integral de Existencias en Bodega:</b><br>
-    • <b>Nivel Crítico (${crit.length}):</b> ${crit.map((x) => `${x.id_producto} (${x.existencia_actual} uds)`).join(", ")}<br>
-    • <b>Nivel Preventivo (${prev.length}):</b> ${prev.map((x) => `${x.id_producto} (${x.existencia_actual} uds)`).join(", ") || "Ninguno"}<br>
-    • <b>Nivel Óptimo (${opt.length}):</b> ${opt.map((x) => `${x.id_producto} (${x.existencia_actual} uds)`).join(", ")}<br>
-    • <b>Mayor existencia:</b> ${porStock[0].id_producto} (${porStock[0].nombre}) con <b>${porStock[0].existencia} uds</b>.<br>
-    • <b>Menor existencia:</b> ${porStock[porStock.length - 1].id_producto} (${porStock[porStock.length - 1].nombre}) con <b>${porStock[porStock.length - 1].existencia} uds</b>.`;
+    <b>1. Nivel Crítico (${crit.length}):</b> ${crit.map((x) => `${x.id_producto} (${x.existencia_actual} uds)`).join(", ")}<br>
+    <b>2. Nivel Preventivo (${prev.length}):</b> ${prev.map((x) => `${x.id_producto} (${x.existencia_actual} uds)`).join(", ") || "Ninguno"}<br>
+    <b>3. Nivel Óptimo (${opt.length}):</b> ${opt.map((x) => `${x.id_producto} (${x.existencia_actual} uds)`).join(", ")}<br>
+    <b>4. Mayor existencia:</b> ${porStock[0].id_producto} (${porStock[0].nombre}) con <b>${porStock[0].existencia} uds</b>.<br>
+    <b>5. Menor existencia:</b> ${porStock[porStock.length - 1].id_producto} (${porStock[porStock.length - 1].nombre}) con <b>${porStock[porStock.length - 1].existencia} uds</b>.`;
   }
 
   if (qNorm.includes("CRITICO") || qNorm.includes("URGENTE") || qNorm.includes("QUE COMPRAR") || qNorm.includes("REORDEN") || qNorm.includes("RECOMPRA") || qNorm.includes("DESABASTO") || qNorm.includes("ALERTA")) {
     const criticos = rel.recomendaciones_ia.filter((r) => r.nivel_alerta === "CRITICO");
     const totalInv = criticos.reduce((a, b) => a + b.inversion_total_sugerida, 0);
     const lista = criticos
-      .map((c) => `• <b>${c.id_producto} (${c.nombre_producto})</b>: Stock actual <b>${c.existencia_actual} uds</b> (Mín: ${c.stock_minimo}) → Pedir <b>+${c.cantidad_sugerida_compra} uds</b> (${formatUSD(c.inversion_total_sugerida)}) a <i>${c.nombre_proveedor}</i>`)
+      .map((c, idx) => `<b>${idx + 1}. [${c.id_producto}] ${c.nombre_producto}:</b> Stock actual <b>${c.existencia_actual} uds</b> (Mín: ${c.stock_minimo}) → Pedir <b>+${c.cantidad_sugerida_compra} uds</b> (${formatUSD(c.inversion_total_sugerida)}) a <i>${c.nombre_proveedor}</i>`)
       .join("<br>");
-    return `<b>Plan de Reabastecimiento Urgente (IA):</b><br>Detecté <b>${criticos.length} productos en estado CRÍTICO</b> que requieren una inversión Landed total de <b>${formatUSD(totalInv)}</b>:<br>${lista}`;
+    return `<b>Plan Ordenado de Reabastecimiento Urgente (IA):</b><br>Detecté <b>${criticos.length} productos en estado CRÍTICO</b> con inversión Landed requerida de <b>${formatUSD(totalInv)}</b>:<br>${lista}`;
   }
 
   if (qNorm.includes("PROVEEDOR") || qNorm.includes("A QUIEN COMPRAR") || qNorm.includes("SCORE") || qNorm.includes("TIEMPO DE ENTREGA") || qNorm.includes("LEAD TIME")) {
     const ordenados = [...rel.proveedores].sort((a, b) => b.score_ia - a.score_ia);
     const top = ordenados[0];
     const ranking = ordenados
-      .map((p, i) => `${i + 1}. <b>${p.nombre}</b> (${p.pais_origen}) — Score IA: <b>${p.score_ia}/100</b> | Entrega: <b>${p.tiempo_entrega_dias} días</b> | Cumplimiento: <b>${p.cumplimiento_entregas_pct}%</b> | Calidad: ${p.calificacion_calidad}/5 | Correo: <code>${p.correo}</code>`)
+      .map((p, i) => `<b>${i + 1}. ${p.nombre}</b> (${p.pais_origen}) — Score IA: <b>${p.score_ia}/100</b> | Entrega: <b>${p.tiempo_entrega_dias} días</b> | Cumplimiento: <b>${p.cumplimiento_entregas_pct}%</b> | Calidad: ${p.calificacion_calidad}/5`)
       .join("<br>");
-    return `<b>Evaluación Multicriterio de Proveedores (Pesos: Calidad ${AppState.iaParams.pesoCalidad}%, Cumplimiento ${AppState.iaParams.pesoCumplimiento}%, Velocidad ${AppState.iaParams.pesoTiempo}%):</b><br>El proveedor número 1 es <b>${top.nombre}</b>:<br>${ranking}`;
+    return `<b>Ranking Multicriterio de Proveedores (Calidad ${AppState.iaParams.pesoCalidad}%, Cumplimiento ${AppState.iaParams.pesoCumplimiento}%, Velocidad ${AppState.iaParams.pesoTiempo}%):</b><br>Proveedor óptimo actual: <b>${top.nombre}</b>:<br>${ranking}`;
   }
 
   if (qNorm.includes("MARGEN") || qNorm.includes("RENTAB") || qNorm.includes("GANANCIA") || qNorm.includes("UTILIDAD") || qNorm.includes("LANDED") || qNorm.includes("FOB") || qNorm.includes("ARANCEL") || qNorm.includes("ADUANA")) {
@@ -1689,37 +1782,36 @@ function buildSmartCopilotAnswer(rawQuery) {
     const valorCostoInv = rel.productos.reduce((acc, p) => acc + p.existencia * p.precio_total_compra, 0);
     const valorVentaInv = rel.productos.reduce((acc, p) => acc + p.existencia * p.precio_venta, 0);
     return `<b>Análisis de Rentabilidad y Estructura Landed Cost:</b><br>
-    • <b>Fórmula Landed Cost:</b> Costo FOB + Flete + Arancel Aduanal + Impuestos + Almacenaje.<br>
-    • <b>Mayor ganancia en dólares:</b> <b>${topM.id_producto} (${topM.nombre})</b> — Landed: ${formatUSD(topM.precio_total_compra)} → Venta: ${formatUSD(topM.precio_venta)} (Utilidad: <b>+${formatUSD(topM.margen_unitario)}</b> por unidad).<br>
-    • <b>Mayor margen porcentual:</b> <b>${topP.id_producto} (${topP.nombre})</b> con <b>+${topP.margen_porcentaje}%</b> de rentabilidad.<br>
-    • <b>Valor Total del Inventario (Costo Landed):</b> <b>${formatUSD(valorCostoInv)}</b> → <b>Venta Proyectada:</b> <b>${formatUSD(valorVentaInv)}</b> (Utilidad bruta potencial: <b>+${formatUSD(valorVentaInv - valorCostoInv)}</b>).`;
+    <b>1. Fórmula Landed Cost:</b> Costo FOB + Flete + Arancel Aduanal + Impuestos + Almacenaje.<br>
+    <b>2. Mayor ganancia unitaria ($):</b> <b>${topM.id_producto} (${topM.nombre})</b> — Landed: ${formatUSD(topM.precio_total_compra)} → Venta: ${formatUSD(topM.precio_venta)} (Utilidad: <b>+${formatUSD(topM.margen_unitario)}</b>).<br>
+    <b>3. Mayor margen porcentual (%):</b> <b>${topP.id_producto} (${topP.nombre})</b> con <b>+${topP.margen_porcentaje}%</b>.<br>
+    <b>4. Valor Total del Inventario:</b> Costo Landed <b>${formatUSD(valorCostoInv)}</b> → Venta Proyectada <b>${formatUSD(valorVentaInv)}</b> (Utilidad potencial: <b>+${formatUSD(valorVentaInv - valorCostoInv)}</b>).`;
   }
 
   if (qNorm.includes("VINCUL") || qNorm.includes("RELACION") || qNorm.includes("INTEGRIDAD") || qNorm.includes("AUTO-CURACION") || qNorm.includes("AUTOCURACION") || qNorm.includes("AUDITORIA")) {
     const eventos = rel.registro_auditoria
-      .map((a) => `• <b>${a.tipo}</b> (<code>${a.pk_generada}</code>): <b>${a.entidad}</b> — ${a.detalle}`)
+      .map((a, idx) => `<b>${idx + 1}. ${a.tipo}</b> (<code>${a.pk_generada}</code>): <b>${a.entidad}</b> — ${a.detalle}`)
       .join("<br>");
     return `<b>Auditoría de Integridad Referencial y Auto-Curación:</b><br>Al integrar los 3 libros Excel, el motor detectó registros en <code>FACTURACION.xlsx</code> que no existían previamente en los libros maestros y ejecutó alta automática:<br>${eventos}<br>Resultado: <b>100% de relaciones válidas y 0 registros huérfanos</b>.`;
   }
 
-  if (qNorm.includes("SQL") || qNorm.includes("TABLA") || qNorm.includes("BASE DE DATOS") || qNorm.includes("ESQUEMA") || qNorm.includes("VERCEL") || qNorm.includes("EXCEL")) {
-    return `<b>Arquitectura de Datos de UniControl (SQLite3 + 3 Libros Excel):</b><br>
-    • <b>3 Libros Excel Incorporados:</b> <code>PRODUCTOS.xlsx</code> (${AppState.rawProductos.length} filas), <code>PROVEEDORES_COMPLETO_V2.xlsx</code> (${AppState.rawProveedores.length} filas) y <code>FACTURACION.xlsx</code> (${AppState.rawFacturacion.length} líneas). Están integrados en el núcleo del sistema, por lo que funcionan al 100% en <b>Vercel</b> o cualquier computadora sin errores de carga.<br>
-    • <b>6 Tablas Relacionales SQL:</b> <code>categorias</code>, <code>proveedores</code>, <code>productos</code>, <code>documentos_compra</code>, <code>detalle_compras</code> y <code>recomendaciones_ia</code>.<br>
-    • <b>Tip:</b> Puedes usar el botón superior <b>"📂 Abrir con ▾"</b> para abrir o descargar cualquiera de los 3 libros en el Excel de tu computadora.`;
+  if (qNorm.includes("SQL") || qNorm.includes("TABLA") || qNorm.includes("BASE DE DATOS") || qNorm.includes("ESQUEMA") || qNorm.includes("EXCEL")) {
+    return `<b>Arquitectura de Base de Datos y Libros Excel en UniControl:</b><br>
+    <b>1. Motor Relacional:</b> <b>SQLite3 (SQL.js 1.10.3 en WebAssembly)</b> alojado en memoria sobre la nube de <b>Vercel</b> y conectado mediante el driver nativo <code>AppState.sqliteDb</code>.<br>
+    <b>2. Esquema 3FN (6 Tablas y 3 Vistas):</b> Tablas <code>categorias</code>, <code>proveedores</code>, <code>productos</code>, <code>documentos_compra</code>, <code>detalle_compras</code> y <code>recomendaciones_ia</code>.<br>
+    <b>3. Libros Excel Integrados:</b> <code>PRODUCTOS.xlsx</code> (${AppState.rawProductos.length} filas), <code>PROVEEDORES_COMPLETO_V2.xlsx</code> (${AppState.rawProveedores.length} filas) y <code>FACTURACION.xlsx</code> (${AppState.rawFacturacion.length} líneas), disponibles en el botón superior <b>"📂 Abrir con ▾"</b>.`;
   }
 
-  const listadoBreve = rel.productos
-    .map((p) => `<code>${p.id_producto}</code> ${p.nombre} (${p.existencia} uds · ${formatUSD(p.precio_venta)})`)
-    .join(" · ");
   const totalCosto = rel.productos.reduce((a, p) => a + p.existencia * p.precio_total_compra, 0);
   const totalUnidades = rel.productos.reduce((a, p) => a + p.existencia, 0);
 
   return `<b>Respuesta Analítica UniControl para <i>"${qTrim}"</i>:</b><br>
-  • <b>Estado Global del Sistema:</b> <b>${rel.productos.length} productos</b> (${totalUnidades} unidades físicas en bodega), <b>${rel.proveedores.length} proveedores internacionales</b> y <b>${rel.detalle_compras.length} operaciones de facturación</b>.<br>
-  • <b>Capital en Inventario (Landed Cost):</b> <b>${formatUSD(totalCosto)}</b>.<br>
-  • <b>Catálogo Completo Disponible:</b> ${listadoBreve}.<br>
-  <i>Puedes preguntarme por cualquier código o nombre de esta lista, pedir comparativas de precios, revisar facturas, evaluar proveedores, hacer cálculos matemáticos o ejecutar consultas <code>SELECT</code>.</i>`;
+  <b>1. Resumen Operativo:</b> El sistema gestiona <b>${rel.productos.length} productos</b> (${totalUnidades} unidades en bodega), <b>${rel.proveedores.length} proveedores</b> y <b>${rel.detalle_compras.length} líneas de facturación</b> con un valor Landed de <b>${formatUSD(totalCosto)}</b>.<br>
+  <b>2. Consultas Disponibles:</b> Puedes explorar el catálogo paso a paso o consultar la arquitectura del sistema con los botones inferiores:<br>
+  <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap">
+    <button type="button" class="btn-tactical cyan" style="font-size:11.5px; padding:4px 10px" onclick="askCopilotIA('Mostrar catálogo bloque 1')">📋 Ver Catálogo (Bloque 1 de 3)</button>
+    <button type="button" class="btn-tactical" style="font-size:11.5px; padding:4px 10px" onclick="askCopilotIA('¿Cómo está hecho el sistema, su backend, base de datos y despliegue?')">⚙️ Ver Arquitectura y Tecnologías</button>
+  </div>`;
 }
 
 function askCopilotIA(predefinedQuestion = null) {
@@ -2329,7 +2421,35 @@ function closeMobileSidebar() {
   }
 }
 
+function resetScrollPosition() {
+  window.scrollTo(0, 0);
+  if (document.scrollingElement) {
+    document.scrollingElement.scrollTop = 0;
+    document.scrollingElement.scrollLeft = 0;
+  }
+  if (document.documentElement) {
+    document.documentElement.scrollTop = 0;
+    document.documentElement.scrollLeft = 0;
+  }
+  if (document.body) {
+    document.body.scrollTop = 0;
+    document.body.scrollLeft = 0;
+  }
+  const mainArea = document.querySelector(".main-area");
+  if (mainArea) {
+    mainArea.scrollTop = 0;
+    mainArea.scrollLeft = 0;
+  }
+  const workspaceBody = document.querySelector(".workspace-body");
+  if (workspaceBody) {
+    workspaceBody.scrollTop = 0;
+    workspaceBody.scrollLeft = 0;
+  }
+}
+
 function switchView(viewId, btnEl) {
+  resetScrollPosition();
+
   document.querySelectorAll(".view-section").forEach((el) => el.classList.remove("active"));
   const target = document.getElementById(viewId);
   if (target) target.classList.add("active");
@@ -2344,17 +2464,20 @@ function switchView(viewId, btnEl) {
 
   document.getElementById("topbar-title").textContent = VIEW_TITLES[viewId] || "UniControl (Sistema de gestión universitario)";
   closeMobileSidebar();
-  window.scrollTo({ top: 0, behavior: "instant" });
+  closeExcelDropdown();
   renderCharts();
-
-  if (viewId === "view-ia") {
-    const chatInput = document.getElementById("copilot-input");
-    if (chatInput) chatInput.focus({ preventScroll: true });
-  }
 
   if (viewId === "view-sql") {
     executeLiveSql();
   }
+
+  requestAnimationFrame(() => {
+    resetScrollPosition();
+    if (viewId === "view-ia") {
+      const chatInput = document.getElementById("copilot-input");
+      if (chatInput) chatInput.focus({ preventScroll: true });
+    }
+  });
 }
 
 function toggleTheme() {
