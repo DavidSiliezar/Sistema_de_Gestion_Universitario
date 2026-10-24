@@ -1487,6 +1487,241 @@ function updateIASimulator() {
   notifyToast("info", "Modelo predictivo IA recalculado en tiempo real");
 }
 
+function clearCopilotChat() {
+  const msgBox = document.getElementById("copilot-messages");
+  if (!msgBox) return;
+  const rel = AppState.relational;
+  const critCount = rel ? rel.recomendaciones_ia.filter((r) => r.nivel_alerta === "CRITICO").length : 6;
+  msgBox.innerHTML = `
+    <div class="msg-bubble ai">
+      <b>Historial de conversación reiniciado.</b> Tengo cargados en memoria <b>${rel ? rel.productos.length : 14} productos</b>, <b>${rel ? rel.proveedores.length : 4} proveedores</b> y <b>${rel ? rel.detalle_compras.length : 7} líneas de facturación</b> (${critCount} en estado crítico). Escribe cualquier pregunta sobre productos, precios, facturas, proveedores, fórmulas, SQL o temas generales.
+    </div>
+  `;
+  notifyToast("info", "Chat de IA reiniciado");
+}
+
+function buildSmartCopilotAnswer(rawQuery) {
+  const rel = AppState.relational;
+  const qNorm = normalizeText(rawQuery);
+  const qTrim = rawQuery.trim();
+
+  if (/^(SELECT|PRAGMA|WITH|EXPLAIN)\b/i.test(qTrim) && AppState.sqliteDb) {
+    try {
+      const res = AppState.sqliteDb.exec(qTrim);
+      if (!res || res.length === 0) {
+        return `<b>Consulta SQL ejecutada en SQLite3:</b><br>La sentencia se procesó sin errores y devolvió 0 filas.`;
+      }
+      const { columns, values } = res[0];
+      const topRows = values.slice(0, 8);
+      const preview = topRows
+        .map((row) => `• ` + row.map((v, idx) => `<b>${columns[idx]}:</b> ${v === null ? "NULL" : v}`).join(" · "))
+        .join("<br>");
+      return `<b>Resultado SQL en Vivo (${values.length} filas):</b><br>${preview}${values.length > 8 ? `<br><i>...mostrando primeras 8 de ${values.length} filas.</i>` : ""}`;
+    } catch (err) {
+      return `<b>Error ejecutando SQL en el chat:</b><br><code>${err.message}</code>`;
+    }
+  }
+
+  const pctMatch = qTrim.match(/(\d+(?:\.\d+)?)\s*%\s*(?:de|del|sobre)\s*(\d+(?:\.\d+)?)/i);
+  if (pctMatch) {
+    const pct = Number(pctMatch[1]);
+    const base = Number(pctMatch[2]);
+    const resVal = (pct / 100) * base;
+    return `<b>Cálculo Financiero Rápido:</b><br>El <b>${pct}%</b> de <b>${formatUSD(base)}</b> es <b>${formatUSD(resVal)}</b> (Total con recargo: <b>${formatUSD(base + resVal)}</b> · Con descuento: <b>${formatUSD(base - resVal)}</b>).`;
+  }
+
+  const mathCandidate = qTrim.replace(/^(cuanto es|calcula|calcular|resuelve|resultado de)\s+/i, "").replace(/\$/g, "").trim();
+  if (/^[\d\s()+*/.,-]+$/.test(mathCandidate) && /[+*/-]/.test(mathCandidate) && /\d/.test(mathCandidate)) {
+    try {
+      const sanitized = mathCandidate.replace(/,/g, ".");
+      const val = Function(`"use strict"; return (${sanitized});`)();
+      if (typeof val === "number" && Number.isFinite(val)) {
+        return `<b>Calculadora UniControl:</b><br><code>${mathCandidate}</code> = <b>${Number(val.toFixed(4)).toLocaleString("en-US")}</b> (En formato moneda: <b>${formatUSD(val)}</b>).`;
+      }
+    } catch (e) {}
+  }
+
+  if (/^(HOLA|BUENOS DIAS|BUENAS TARDES|BUENAS NOCHES|SALUDOS|HEY|QUE TAL|COMO ESTAS)\b/.test(qNorm) && qNorm.split(" ").length <= 5) {
+    const criticos = rel.recomendaciones_ia.filter((r) => r.nivel_alerta === "CRITICO").length;
+    return `<b>¡Hola! Soy el Asistente de Inteligencia Artificial de UniControl.</b><br>Estoy conectado en tiempo real a los 3 libros de Excel y al motor relacional SQLite3. Puedo responderte cualquier consulta sobre:<br>• <b>Productos específicos</b> (por código, SKU, marca, vehículo o nombre, ej. <i>"Hilux"</i>, <i>"L200"</i>, <i>"PROD-008"</i>).<br>• <b>Proveedores y tiempos de importación</b> (Panamá, Tailandia, Asia).<br>• <b>Facturas, cotizaciones e IVA</b>.<br>• <b>Precios, márgenes, Landed Cost y punto de reorden</b> (actualmente hay <b>${criticos} alertas críticas</b>).<br>• <b>Cálculos matemáticos, consultas SQL o preguntas conceptuales</b>. ¿Qué deseas consultar?`;
+  }
+
+  if (qNorm.includes("QUIEN ERES") || qNorm.includes("QUE ERES") || qNorm.includes("QUE PUEDES HACER") || qNorm.includes("CUALES SON TUS FUNCIONES") || qNorm.includes("RESPONDER CUALQUIER") || qNorm === "AYUDA") {
+    return `<b>Capacidad Multiconsulta del Asistente IA — UniControl:</b><br>Soy un motor analítico y conversacional integrado que inspecciona en vivo las 6 tablas SQL y los 3 libros de Excel del sistema. Puedo responder:<br>1. <b>Búsqueda puntual de cualquier ítem:</b> Pregúntame por cualquier accesorio, código (<code>PROD-001</code> a <code>PROD-014</code>), SKU o vehículo (<i>Yaris, Hilux, L200, Frontier, Triton</i>).<br>2. <b>Finanzas y Costos de Importación:</b> Producto más caro, más barato, desglose FOB + Aduana (Landed Cost), utilidad bruta y ROI.<br>3. <b>Trazabilidad de Facturación:</b> Detalle de facturas comerciales, cotizaciones, órdenes de compra e impuestos (IVA 13%).<br>4. <b>Evaluación de Proveedores:</b> Ranking por Score IA, contacto, correo, NIT y tiempos de entrega.<br>5. <b>Ejecución SQL y Calculadora:</b> Escribe una sentencia <code>SELECT ...</code> o una operación matemática y la resolveré al instante.`;
+  }
+
+  const stopwords = new Set([
+    "QUE", "CUAL", "CUALES", "COMO", "DONDE", "CUANTO", "CUANTOS", "CUANTA", "CUANTAS",
+    "QUIEN", "QUIENES", "POR", "PARA", "CON", "SIN", "SOBRE", "ENTRE", "HASTA", "DESDE",
+    "LOS", "LAS", "UNA", "UNO", "UNOS", "UNAS", "DEL", "AL", "ESTE", "ESTA", "ESTOS",
+    "ESTAS", "ESE", "ESA", "ESOS", "ESAS", "SON", "ESTA", "ESTAN", "HAY", "TIENE",
+    "TIENEN", "DIME", "MUESTRAME", "MOSTRAR", "VER", "BUSCAR", "BUSCA", "INFO",
+    "INFORMACION", "DATOS", "DETALLE", "DETALLES", "PRECIO", "COSTO", "VALOR",
+    "PRODUCTO", "PRODUCTOS", "ACCESORIO", "ACCESORIOS", "CATALOGO", "INVENTARIO",
+    "STOCK", "EXISTENCIA", "UNIDADES", "COMPRA", "COMPRAR", "VENTA", "PROVEEDOR",
+    "PROVEEDORES", "FACTURA", "FACTURAS", "LIBRO", "EXCEL", "MAS", "MENOS", "MEJOR",
+    "PEOR", "MAYOR", "MENOR", "TODOS", "TODAS", "TODO", "TODA", "SISTEMA", "UNICONTROL"
+  ]);
+
+  const matchedProducts = rel.productos.filter((p) => {
+    const idNorm = normalizeText(p.id_producto);
+    const skuNorm = normalizeText(p.codigo_sku);
+    if (qNorm.includes(idNorm) || (skuNorm.length >= 4 && qNorm.includes(skuNorm))) return true;
+    const prodNumberMatch = qNorm.match(/\bPROD(?:UCTO)?\s*0*(\d+)\b/);
+    if (prodNumberMatch && idNorm === `PROD-${String(prodNumberMatch[1]).padStart(3, "0")}`) return true;
+    const prodTokens = normalizeText(`${p.nombre} ${p.marca}`).split(" ").filter((t) => t.length >= 4 && !stopwords.has(t));
+    return prodTokens.some((tok) => qNorm.includes(tok));
+  });
+
+  if (matchedProducts.length > 0 && matchedProducts.length <= 5 && !qNorm.includes("TODOS LOS PRODUCTOS")) {
+    const cards = matchedProducts
+      .map((p) => {
+        const rec = rel.recomendaciones_ia.find((r) => r.id_producto === p.id_producto);
+        const prov = rel.proveedores.find((pr) => pr.id_proveedor === p.id_proveedor_preferido);
+        const gastosImp = Number((p.precio_total_compra - p.costo_unitario).toFixed(2));
+        return `• <b>${p.id_producto} — ${p.nombre}</b> (SKU: <code>${p.codigo_sku}</code> · Marca: <b>${p.marca}</b>)<br>
+        &nbsp;&nbsp;↳ <b>Inventario:</b> ${p.existencia} uds en ${p.ubicacion} (Mínimo: ${p.stock_minimo} · Reorden: ${p.punto_reorden} · Estado: <b>${rec ? rec.nivel_alerta : "OPTIMO"}</b>)<br>
+        &nbsp;&nbsp;↳ <b>Estructura de Costo:</b> FOB ${formatUSD(p.costo_unitario)} + Importación ${formatUSD(gastosImp)} (Flete ${formatUSD(p.costo_flete)}, Arancel ${formatUSD(p.aranceles_aduanales)}, Impuesto ${formatUSD(p.impuestos)}, Almacén ${formatUSD(p.almacenaje)}) = <b>Landed Cost: ${formatUSD(p.precio_total_compra)}</b><br>
+        &nbsp;&nbsp;↳ <b>Precio Venta:</b> <b>${formatUSD(p.precio_venta)}</b> · Ganancia Neta: <b>+${formatUSD(p.margen_unitario)} (+${p.margen_porcentaje}%)</b><br>
+        &nbsp;&nbsp;↳ <b>Abastecimiento IA:</b> ${rec && rec.cantidad_sugerida_compra > 0 ? `Pedir <b>${rec.cantidad_sugerida_compra} uds</b> (${formatUSD(rec.inversion_total_sugerida)})` : "Stock suficiente (0 uds a pedir)"} con <i>${prov ? prov.nombre : "Proveedor asignado"}</i>`;
+      })
+      .join("<br><br>");
+    return `<b>Ficha Técnica y Financiera Encontrada (${matchedProducts.length} ${matchedProducts.length === 1 ? "producto" : "productos"}):</b><br>${cards}`;
+  }
+
+  const matchedSuppliers = rel.proveedores.filter((pr) => {
+    if (qNorm.includes("LAFAYETTE") && normalizeText(pr.nombre).includes("LAFAYETTE")) return true;
+    if ((qNorm.includes("FORTUNE") || qNorm.includes("FPI") || qNorm.includes("TAILANDIA") || qNorm.includes("THAILAND")) && normalizeText(pr.nombre).includes("FORTUNE")) return true;
+    if (qNorm.includes("WHEEL") && normalizeText(pr.nombre).includes("WHEEL")) return true;
+    if (qNorm.includes("IAM") && normalizeText(pr.nombre).includes("IAM")) return true;
+    return false;
+  });
+
+  if (matchedSuppliers.length === 1 && !qNorm.includes("VINCUL") && !qNorm.includes("RELACION")) {
+    const p = matchedSuppliers[0];
+    const prodsProv = rel.productos.filter((x) => x.id_proveedor_preferido === p.id_proveedor);
+    const factsProv = rel.detalle_compras.filter((d) => d.id_proveedor === p.id_proveedor);
+    const totalComprado = factsProv.reduce((acc, d) => acc + d.total_linea, 0);
+    return `<b>Perfil Completo del Proveedor #${p.id_proveedor} — ${p.nombre}:</b><br>
+    • <b>País / Origen:</b> ${p.pais_origen} (${p.direccion})<br>
+    • <b>Contacto Comercial:</b> ${p.contacto} · <b>Correo:</b> ${p.correo} · <b>NIT:</b> ${p.nit}<br>
+    • <b>Condiciones:</b> ${p.condiciones_pago} · <b>Tipo:</b> ${p.tipo_contribuyente}<br>
+    • <b>Desempeño IA:</b> Score Global <b>${p.score_ia}/100</b> · Tiempo de Entrega: <b>${p.tiempo_entrega_dias} días</b> · Cumplimiento: <b>${p.cumplimiento_entregas_pct}%</b> · Calidad: <b>${p.calificacion_calidad}/5.0</b><br>
+    • <b>Relaciones en Base de Datos:</b> Abastece <b>${prodsProv.length} productos</b> del catálogo y registra <b>${factsProv.length} líneas de facturación</b> por un total de <b>${formatUSD(totalComprado)}</b>.`;
+  }
+
+  if (qNorm.includes("MAS CARO") || qNorm.includes("MAS BARATO") || qNorm.includes("PRECIOS EXTREMOS") || qNorm.includes("MAYOR PRECIO") || qNorm.includes("MENOR PRECIO") || qNorm.includes("ECONOMICO") || qNorm.includes("COSTOSO")) {
+    const porPrecioDesc = [...rel.productos].sort((a, b) => b.precio_venta - a.precio_venta);
+    const masCaro = porPrecioDesc[0];
+    const segundoCaro = porPrecioDesc[1];
+    const masBarato = porPrecioDesc[porPrecioDesc.length - 1];
+    const promedioVenta = rel.productos.reduce((a, b) => a + b.precio_venta, 0) / rel.productos.length;
+    return `<b>Comparativa de Precios del Catálogo (${rel.productos.length} productos):</b><br>
+    • <b>Producto más caro:</b> <b>${masCaro.id_producto} — ${masCaro.nombre}</b> (Marca ${masCaro.marca}) con Precio de Venta de <b>${formatUSD(masCaro.precio_venta)}</b> y Landed Cost de <b>${formatUSD(masCaro.precio_total_compra)}</b>.<br>
+    • <b>Segundo más caro:</b> <b>${segundoCaro.id_producto} — ${segundoCaro.nombre}</b> con Precio de Venta de <b>${formatUSD(segundoCaro.precio_venta)}</b>.<br>
+    • <b>Producto más económico:</b> <b>${masBarato.id_producto} — ${masBarato.nombre}</b> con Precio de Venta de <b>${formatUSD(masBarato.precio_venta)}</b> y Landed Cost de <b>${formatUSD(masBarato.precio_total_compra)}</b>.<br>
+    • <b>Ticket promedio del catálogo:</b> <b>${formatUSD(promedioVenta)}</b>.`;
+  }
+
+  if (qNorm.includes("FACTURA") || qNorm.includes("COTIZACION") || qNorm.includes("IVA") || qNorm.includes("INV000") || qNorm.includes("EST-1019") || qNorm.includes("PED-046") || qNorm.includes("FPI-200")) {
+    const totalFacturado = rel.detalle_compras.reduce((a, d) => a + d.total_linea, 0);
+    const totalIva = rel.detalle_compras.reduce((a, d) => a + d.iva_monto, 0);
+    const totalUnidadesFact = rel.detalle_compras.reduce((a, d) => a + d.cantidad, 0);
+    const desglose = rel.detalle_compras
+      .map((d) => {
+        const prov = rel.proveedores.find((p) => p.id_proveedor === d.id_proveedor);
+        return `• <b>${d.numero_factura}</b>: ${d.cantidad} uds de <i>${d.descripcion_factura}</i> (${ d.id_producto }) → <b>${formatUSD(d.total_linea)}</b> + IVA ${formatUSD(d.iva_monto)} | Prov: ${prov ? prov.nombre : ""}`;
+      })
+      .join("<br>");
+    return `<b>Auditoría de Facturación y Compras (FACTURACION.xlsx):</b><br>
+    Se registran <b>${rel.detalle_compras.length} líneas de compra</b> en <b>${rel.documentos_compra.length} documentos</b> (${totalUnidadesFact} unidades adquiridas):<br>
+    • <b>Subtotal Acumulado:</b> <b>${formatUSD(totalFacturado)}</b> · <b>IVA (13%):</b> <b>${formatUSD(totalIva)}</b><br><br>${desglose}`;
+  }
+
+  if (qNorm.includes("CATEGORIA") || qNorm.includes("CLASIFICACION") || qNorm.includes("DISTRIBUIDO") || qNorm.includes("CAT-")) {
+    const resumenCat = rel.categorias
+      .map((c) => {
+        const items = rel.productos.filter((p) => p.id_categoria === c.id_categoria);
+        const uds = items.reduce((a, b) => a + b.existencia, 0);
+        const val = items.reduce((a, b) => a + b.existencia * b.precio_total_compra, 0);
+        return `• <b>${c.id_categoria} (${c.nombre_categoria}):</b> ${items.length} productos · ${uds} unidades · Valor Landed: <b>${formatUSD(val)}</b>`;
+      })
+      .join("<br>");
+    return `<b>Distribución del Inventario por Categorías (${rel.categorias.length} categorías):</b><br>${resumenCat}`;
+  }
+
+  if (qNorm.includes("PREVENTIVO") || qNorm.includes("OPTIMO") || qNorm.includes("MAS STOCK") || qNorm.includes("MENOS STOCK") || qNorm.includes("MAYOR EXISTENCIA") || qNorm.includes("MENOR EXISTENCIA")) {
+    const crit = rel.recomendaciones_ia.filter((r) => r.nivel_alerta === "CRITICO");
+    const prev = rel.recomendaciones_ia.filter((r) => r.nivel_alerta === "PREVENTIVO");
+    const opt = rel.recomendaciones_ia.filter((r) => r.nivel_alerta === "OPTIMO");
+    const porStock = [...rel.productos].sort((a, b) => b.existencia - a.existencia);
+    return `<b>Estado Integral de Existencias en Bodega:</b><br>
+    • <b>Nivel Crítico (${crit.length}):</b> ${crit.map((x) => `${x.id_producto} (${x.existencia_actual} uds)`).join(", ")}<br>
+    • <b>Nivel Preventivo (${prev.length}):</b> ${prev.map((x) => `${x.id_producto} (${x.existencia_actual} uds)`).join(", ") || "Ninguno"}<br>
+    • <b>Nivel Óptimo (${opt.length}):</b> ${opt.map((x) => `${x.id_producto} (${x.existencia_actual} uds)`).join(", ")}<br>
+    • <b>Mayor existencia:</b> ${porStock[0].id_producto} (${porStock[0].nombre}) con <b>${porStock[0].existencia} uds</b>.<br>
+    • <b>Menor existencia:</b> ${porStock[porStock.length - 1].id_producto} (${porStock[porStock.length - 1].nombre}) con <b>${porStock[porStock.length - 1].existencia} uds</b>.`;
+  }
+
+  if (qNorm.includes("CRITICO") || qNorm.includes("URGENTE") || qNorm.includes("QUE COMPRAR") || qNorm.includes("REORDEN") || qNorm.includes("RECOMPRA") || qNorm.includes("DESABASTO") || qNorm.includes("ALERTA")) {
+    const criticos = rel.recomendaciones_ia.filter((r) => r.nivel_alerta === "CRITICO");
+    const totalInv = criticos.reduce((a, b) => a + b.inversion_total_sugerida, 0);
+    const lista = criticos
+      .map((c) => `• <b>${c.id_producto} (${c.nombre_producto})</b>: Stock actual <b>${c.existencia_actual} uds</b> (Mín: ${c.stock_minimo}) → Pedir <b>+${c.cantidad_sugerida_compra} uds</b> (${formatUSD(c.inversion_total_sugerida)}) a <i>${c.nombre_proveedor}</i>`)
+      .join("<br>");
+    return `<b>Plan de Reabastecimiento Urgente (IA):</b><br>Detecté <b>${criticos.length} productos en estado CRÍTICO</b> que requieren una inversión Landed total de <b>${formatUSD(totalInv)}</b>:<br>${lista}`;
+  }
+
+  if (qNorm.includes("PROVEEDOR") || qNorm.includes("A QUIEN COMPRAR") || qNorm.includes("SCORE") || qNorm.includes("TIEMPO DE ENTREGA") || qNorm.includes("LEAD TIME")) {
+    const ordenados = [...rel.proveedores].sort((a, b) => b.score_ia - a.score_ia);
+    const top = ordenados[0];
+    const ranking = ordenados
+      .map((p, i) => `${i + 1}. <b>${p.nombre}</b> (${p.pais_origen}) — Score IA: <b>${p.score_ia}/100</b> | Entrega: <b>${p.tiempo_entrega_dias} días</b> | Cumplimiento: <b>${p.cumplimiento_entregas_pct}%</b> | Calidad: ${p.calificacion_calidad}/5 | Correo: <code>${p.correo}</code>`)
+      .join("<br>");
+    return `<b>Evaluación Multicriterio de Proveedores (Pesos: Calidad ${AppState.iaParams.pesoCalidad}%, Cumplimiento ${AppState.iaParams.pesoCumplimiento}%, Velocidad ${AppState.iaParams.pesoTiempo}%):</b><br>El proveedor número 1 es <b>${top.nombre}</b>:<br>${ranking}`;
+  }
+
+  if (qNorm.includes("MARGEN") || qNorm.includes("RENTAB") || qNorm.includes("GANANCIA") || qNorm.includes("UTILIDAD") || qNorm.includes("LANDED") || qNorm.includes("FOB") || qNorm.includes("ARANCEL") || qNorm.includes("ADUANA")) {
+    const porMargen = [...rel.productos].sort((a, b) => b.margen_unitario - a.margen_unitario);
+    const porPct = [...rel.productos].sort((a, b) => b.margen_porcentaje - a.margen_porcentaje);
+    const topM = porMargen[0];
+    const topP = porPct[0];
+    const valorCostoInv = rel.productos.reduce((acc, p) => acc + p.existencia * p.precio_total_compra, 0);
+    const valorVentaInv = rel.productos.reduce((acc, p) => acc + p.existencia * p.precio_venta, 0);
+    return `<b>Análisis de Rentabilidad y Estructura Landed Cost:</b><br>
+    • <b>Fórmula Landed Cost:</b> Costo FOB + Flete + Arancel Aduanal + Impuestos + Almacenaje.<br>
+    • <b>Mayor ganancia en dólares:</b> <b>${topM.id_producto} (${topM.nombre})</b> — Landed: ${formatUSD(topM.precio_total_compra)} → Venta: ${formatUSD(topM.precio_venta)} (Utilidad: <b>+${formatUSD(topM.margen_unitario)}</b> por unidad).<br>
+    • <b>Mayor margen porcentual:</b> <b>${topP.id_producto} (${topP.nombre})</b> con <b>+${topP.margen_porcentaje}%</b> de rentabilidad.<br>
+    • <b>Valor Total del Inventario (Costo Landed):</b> <b>${formatUSD(valorCostoInv)}</b> → <b>Venta Proyectada:</b> <b>${formatUSD(valorVentaInv)}</b> (Utilidad bruta potencial: <b>+${formatUSD(valorVentaInv - valorCostoInv)}</b>).`;
+  }
+
+  if (qNorm.includes("VINCUL") || qNorm.includes("RELACION") || qNorm.includes("INTEGRIDAD") || qNorm.includes("AUTO-CURACION") || qNorm.includes("AUTOCURACION") || qNorm.includes("AUDITORIA")) {
+    const eventos = rel.registro_auditoria
+      .map((a) => `• <b>${a.tipo}</b> (<code>${a.pk_generada}</code>): <b>${a.entidad}</b> — ${a.detalle}`)
+      .join("<br>");
+    return `<b>Auditoría de Integridad Referencial y Auto-Curación:</b><br>Al integrar los 3 libros Excel, el motor detectó registros en <code>FACTURACION.xlsx</code> que no existían previamente en los libros maestros y ejecutó alta automática:<br>${eventos}<br>Resultado: <b>100% de relaciones válidas y 0 registros huérfanos</b>.`;
+  }
+
+  if (qNorm.includes("SQL") || qNorm.includes("TABLA") || qNorm.includes("BASE DE DATOS") || qNorm.includes("ESQUEMA") || qNorm.includes("VERCEL") || qNorm.includes("EXCEL")) {
+    return `<b>Arquitectura de Datos de UniControl (SQLite3 + 3 Libros Excel):</b><br>
+    • <b>3 Libros Excel Incorporados:</b> <code>PRODUCTOS.xlsx</code> (${AppState.rawProductos.length} filas), <code>PROVEEDORES_COMPLETO_V2.xlsx</code> (${AppState.rawProveedores.length} filas) y <code>FACTURACION.xlsx</code> (${AppState.rawFacturacion.length} líneas). Están integrados en el núcleo del sistema, por lo que funcionan al 100% en <b>Vercel</b> o cualquier computadora sin errores de carga.<br>
+    • <b>6 Tablas Relacionales SQL:</b> <code>categorias</code>, <code>proveedores</code>, <code>productos</code>, <code>documentos_compra</code>, <code>detalle_compras</code> y <code>recomendaciones_ia</code>.<br>
+    • <b>Tip:</b> Puedes usar el botón superior <b>"📂 Abrir con ▾"</b> para abrir o descargar cualquiera de los 3 libros en el Excel de tu computadora.`;
+  }
+
+  const listadoBreve = rel.productos
+    .map((p) => `<code>${p.id_producto}</code> ${p.nombre} (${p.existencia} uds · ${formatUSD(p.precio_venta)})`)
+    .join(" · ");
+  const totalCosto = rel.productos.reduce((a, p) => a + p.existencia * p.precio_total_compra, 0);
+  const totalUnidades = rel.productos.reduce((a, p) => a + p.existencia, 0);
+
+  return `<b>Respuesta Analítica UniControl para <i>"${qTrim}"</i>:</b><br>
+  • <b>Estado Global del Sistema:</b> <b>${rel.productos.length} productos</b> (${totalUnidades} unidades físicas en bodega), <b>${rel.proveedores.length} proveedores internacionales</b> y <b>${rel.detalle_compras.length} operaciones de facturación</b>.<br>
+  • <b>Capital en Inventario (Landed Cost):</b> <b>${formatUSD(totalCosto)}</b>.<br>
+  • <b>Catálogo Completo Disponible:</b> ${listadoBreve}.<br>
+  <i>Puedes preguntarme por cualquier código o nombre de esta lista, pedir comparativas de precios, revisar facturas, evaluar proveedores, hacer cálculos matemáticos o ejecutar consultas <code>SELECT</code>.</i>`;
+}
+
 function askCopilotIA(predefinedQuestion = null) {
   const input = document.getElementById("copilot-input");
   const query = (predefinedQuestion || input.value || "").trim();
@@ -1496,38 +1731,11 @@ function askCopilotIA(predefinedQuestion = null) {
   const msgBox = document.getElementById("copilot-messages");
   msgBox.innerHTML += `<div class="msg-bubble user">${query}</div>`;
 
-  const rel = AppState.relational;
-  const qNorm = normalizeText(query);
-  let answer = "";
-
-  if (qNorm.includes("CRITICO") || qNorm.includes("URGENTE") || qNorm.includes("COMPRAR") || qNorm.includes("DESABASTO")) {
-    const criticos = rel.recomendaciones_ia.filter((r) => r.nivel_alerta === "CRITICO");
-    const totalInv = criticos.reduce((a, b) => a + b.inversion_total_sugerida, 0);
-    const lista = criticos
-      .map((c) => `• <b>${c.id_producto} (${c.nombre_producto})</b>: Stock ${c.existencia_actual} uds → Pedir <b>${c.cantidad_sugerida_compra} uds</b> (${formatUSD(c.inversion_total_sugerida)}) a <i>${c.nombre_proveedor}</i>`)
-      .join("<br>");
-    answer = `<b>Análisis IA de Abastecimiento Urgente:</b><br>Detecté <b>${criticos.length} accesorios en estado CRÍTICO</b> con una inversión requerida de <b>${formatUSD(totalInv)}</b>:<br>${lista}`;
-  } else if (qNorm.includes("PROVEEDOR") || qNorm.includes("MEJOR") || qNorm.includes("LAFAYETTE") || qNorm.includes("TAILANDIA") || qNorm.includes("PANAMA")) {
-    const ordenados = [...rel.proveedores].sort((a, b) => b.score_ia - a.score_ia);
-    const top = ordenados[0];
-    const ranking = ordenados
-      .map((p, i) => `${i + 1}. <b>${p.nombre}</b> (${p.pais_origen}) — Score IA: <b>${p.score_ia}/100</b> | Entrega: ${p.tiempo_entrega_dias} días | Cumplimiento: ${p.cumplimiento_entregas_pct}%`)
-      .join("<br>");
-    answer = `<b>Ranking Multicriterio de Proveedores (IA):</b><br>El proveedor óptimo actual es <b>${top.nombre}</b> por su velocidad desde Zona Libre (${top.tiempo_entrega_dias} días) y confiabilidad:<br>${ranking}`;
-  } else if (qNorm.includes("MARGEN") || qNorm.includes("RENTABLE") || qNorm.includes("GANANCIA") || qNorm.includes("COSTO")) {
-    const porMargen = [...rel.productos].sort((a, b) => b.margen_unitario - a.margen_unitario);
-    const topM = porMargen[0];
-    answer = `<b>Análisis de Rentabilidad y Landed Cost:</b><br>El producto con mayor utilidad neta por unidad es <b>${topM.id_producto} - ${topM.nombre}</b>:<br>• Costo FOB: ${formatUSD(topM.costo_unitario)} + Gastos Importación: ${formatUSD(topM.precio_total_compra - topM.costo_unitario)} = <b>Landed Cost: ${formatUSD(topM.precio_total_compra)}</b><br>• Precio Venta: <b>${formatUSD(topM.precio_venta)}</b> → Ganancia Neta: <b>${formatUSD(topM.margen_unitario)} (+${topM.margen_porcentaje}%)</b>.`;
-  } else if (qNorm.includes("VINCUL") || qNorm.includes("RELACION") || qNorm.includes("INTEGRIDAD") || qNorm.includes("PROD-013") || qNorm.includes("IAM")) {
-    answer = `<b>Auditoría de Integridad Referencial:</b><br>Al cruzar los 3 libros Excel, el motor detectó que en <code>FACTURACION.xlsx</code> existía el proveedor <b>IAM IMPORT & EXPORT TRADING S.A.</b> y los ítems <b>2024 TRITON ROLL BAR CHROME</b> y <b>GRILLE MBG115 NG</b> que no estaban en las tablas maestras.<br>El sistema creó automáticamente <code>id_proveedor = 4</code>, <code>PROD-013</code> y <code>PROD-014</code> antes de insertar el detalle de facturas, logrando <b>0 inconsistencias de relación</b>.`;
-  } else {
-    const totalCosto = rel.productos.reduce((a, p) => a + p.existencia * p.precio_total_compra, 0);
-    answer = `<b>Resumen Operativo en Tiempo Real:</b><br>• Catálogo activo: <b>${rel.productos.length} productos</b> en 6 categorías automotrices.<br>• Valor del inventario (Landed Cost): <b>${formatUSD(totalCosto)}</b>.<br>• Integridad SQL: <b>${rel.detalle_compras.length} líneas de factura</b> vinculadas con éxito a su proveedor y producto.<br>Puedes preguntarme por: <i>"stock crítico"</i>, <i>"mejor proveedor"</i>, <i>"mayor margen"</i> o <i>"auditoría de integridad"</i>.`;
-  }
+  const answer = buildSmartCopilotAnswer(query);
 
   msgBox.innerHTML += `<div class="msg-bubble ai">${answer}</div>`;
   msgBox.scrollTop = msgBox.scrollHeight;
-  notifyToast("success", "Copiloto IA procesó la consulta");
+  notifyToast("success", "Asistente IA respondió la consulta");
 }
 
 function renderCatalogoView() {
@@ -2002,6 +2210,95 @@ function exportIAPurchaseOrdersExcel() {
   notifyToast("success", "Libro Excel de Órdenes de Compra IA exportado");
 }
 
+function toggleExcelDropdown(event) {
+  if (event) event.stopPropagation();
+  const menu = document.getElementById("excel-dropdown-menu");
+  if (menu) {
+    menu.classList.toggle("open");
+  }
+}
+
+function closeExcelDropdown() {
+  const menu = document.getElementById("excel-dropdown-menu");
+  if (menu) {
+    menu.classList.remove("open");
+  }
+}
+
+function buildFormattedWorkbookForBook(rows, sheetName) {
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  if (rows && rows.length > 0) {
+    const keys = Object.keys(rows[0]);
+    ws["!cols"] = keys.map((k) => {
+      const maxCellLen = rows.reduce((max, r) => {
+        const valStr = r[k] !== null && r[k] !== undefined ? String(r[k]) : "";
+        return Math.max(max, valStr.length);
+      }, k.length);
+      return { wch: Math.min(48, Math.max(12, maxCellLen + 3)) };
+    });
+  }
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+  return wb;
+}
+
+function openExcelBook(bookType, silentMenuClose = false) {
+  if (!silentMenuClose) closeExcelDropdown();
+
+  const bookMap = {
+    PRODUCTOS: {
+      rows: AppState.rawProductos,
+      sheetName: "PRODUCTOS",
+      fileName: "PRODUCTOS.xlsx",
+      staticFile: "PRODUCTOS.xlsx",
+      label: "Libro 1: PRODUCTOS.xlsx",
+    },
+    PROVEEDORES: {
+      rows: AppState.rawProveedores,
+      sheetName: "PROVEEDORES",
+      fileName: "PROVEEDORES_COMPLETO_V2.xlsx",
+      staticFile: "PROVEEDORES_COMPLETO_V2 (1).xlsx",
+      label: "Libro 2: PROVEEDORES_COMPLETO_V2.xlsx",
+    },
+    FACTURACION: {
+      rows: AppState.rawFacturacion,
+      sheetName: "FACTURACION",
+      fileName: "FACTURACION.xlsx",
+      staticFile: "FACTURACION.xlsx",
+      label: "Libro 3: FACTURACION.xlsx",
+    },
+  };
+
+  const target = bookMap[bookType];
+  if (!target) return;
+
+  if (typeof XLSX !== "undefined") {
+    const wb = buildFormattedWorkbookForBook(target.rows, target.sheetName);
+    XLSX.writeFile(wb, target.fileName);
+    notifyToast("success", `${target.label} listo para abrir en tu Excel predeterminado`);
+    return;
+  }
+
+  const a = document.createElement("a");
+  a.href = target.staticFile;
+  a.download = target.fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  notifyToast("success", `Abriendo ${target.label}`);
+}
+
+function downloadAllThreeExcels() {
+  closeExcelDropdown();
+  const books = ["PRODUCTOS", "PROVEEDORES", "FACTURACION"];
+  books.forEach((b, idx) => {
+    setTimeout(() => {
+      openExcelBook(b, true);
+    }, idx * 280);
+  });
+  notifyToast("success", "Descargando los 3 libros de Excel por separado (.xlsx)");
+}
+
 const VIEW_TITLES = {
   "view-dashboard": "UniControl — Panel General & Diagnóstico Ejecutivo",
   "view-ingesta": "UniControl — Ingesta de 3 Libros Excel & Relaciones entre Registros",
@@ -2078,6 +2375,14 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (e.key === "Escape") {
       closeMobileSidebar();
       closePurchaseOrderModal();
+      closeExcelDropdown();
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    const dropdown = document.getElementById("excel-open-dropdown");
+    if (dropdown && !dropdown.contains(e.target)) {
+      closeExcelDropdown();
     }
   });
 
