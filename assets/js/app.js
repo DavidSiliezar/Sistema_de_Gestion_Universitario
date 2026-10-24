@@ -2344,7 +2344,13 @@ function switchView(viewId, btnEl) {
 
   document.getElementById("topbar-title").textContent = VIEW_TITLES[viewId] || "UniControl (Sistema de gestión universitario)";
   closeMobileSidebar();
+  window.scrollTo({ top: 0, behavior: "instant" });
   renderCharts();
+
+  if (viewId === "view-ia") {
+    const chatInput = document.getElementById("copilot-input");
+    if (chatInput) chatInput.focus({ preventScroll: true });
+  }
 
   if (viewId === "view-sql") {
     executeLiveSql();

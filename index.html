@@ -538,25 +538,25 @@
         <section id="view-ia" class="view-section">
           <div class="grid-2col">
             <div class="panel" style="margin-bottom:0; display:flex; flex-direction:column">
-              <div class="panel-header">
-                <div>
-                  <div class="panel-title">Asistente IA de Gestión &amp; Abastecimiento — UniControl</div>
-                  <div class="panel-subtitle">Consulta cualquier pregunta en lenguaje natural sobre productos, precios, proveedores, facturas, SQL o cálculos</div>
+              <div class="panel-header" style="padding:11px 16px">
+                <div style="min-width:0; flex:1">
+                  <div class="panel-title" style="font-size:15.5px">Asistente IA de Gestión &amp; Abastecimiento — UniControl</div>
+                  <div class="panel-subtitle" style="font-size:12.5px">Consulta cualquier pregunta sobre productos, precios, proveedores, facturas, SQL o cálculos</div>
                 </div>
-                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
-                  <span class="status-badge optimo">IA Activa · Multiconsulta</span>
+                <div style="display:flex; align-items:center; gap:6px; flex-shrink:0">
+                  <span class="status-badge optimo">IA Activa</span>
                   <button type="button" class="btn-tactical" style="font-size:11.5px; padding:4px 9px" onclick="clearCopilotChat()">Limpiar Chat</button>
                 </div>
               </div>
-              <div class="panel-body" style="padding:16px; display:flex; flex-direction:column; flex:1">
-                <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px">
-                  <button class="btn-tactical" style="font-size:12px; padding:5px 10px" onclick="askCopilotIA('¿Qué productos están en stock crítico y cuánto debemos comprar?')">¿Qué comprar urgente?</button>
-                  <button class="btn-tactical" style="font-size:12px; padding:5px 10px" onclick="askCopilotIA('¿Cuál es el mejor proveedor según el Score de IA?')">¿A quién comprar?</button>
-                  <button class="btn-tactical" style="font-size:12px; padding:5px 10px" onclick="askCopilotIA('¿Cuál es el accesorio con mayor margen de ganancia?')">Mayor rentabilidad</button>
-                  <button class="btn-tactical" style="font-size:12px; padding:5px 10px" onclick="askCopilotIA('¿Cuál es el producto más caro y el más barato del catálogo?')">Precios extremos</button>
-                  <button class="btn-tactical" style="font-size:12px; padding:5px 10px" onclick="askCopilotIA('Muéstrame el resumen de todas las facturas registradas')">Ver facturas</button>
-                  <button class="btn-tactical" style="font-size:12px; padding:5px 10px" onclick="askCopilotIA('¿Cómo se vincularon los registros de PROD-013 e IAM?')">Explicar vínculos</button>
-                  <button class="btn-tactical" style="font-size:12px; padding:5px 10px" onclick="askCopilotIA('¿Cómo está distribuido el inventario por categorías?')">Categorías</button>
+              <div class="panel-body" style="padding:12px 14px; display:flex; flex-direction:column; flex:1">
+                <div style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:9px">
+                  <button class="btn-tactical" style="font-size:11.5px; padding:4px 9px" onclick="askCopilotIA('¿Qué productos están en stock crítico y cuánto debemos comprar?')">¿Qué comprar urgente?</button>
+                  <button class="btn-tactical" style="font-size:11.5px; padding:4px 9px" onclick="askCopilotIA('¿Cuál es el mejor proveedor según el Score de IA?')">¿A quién comprar?</button>
+                  <button class="btn-tactical" style="font-size:11.5px; padding:4px 9px" onclick="askCopilotIA('¿Cuál es el accesorio con mayor margen de ganancia?')">Mayor rentabilidad</button>
+                  <button class="btn-tactical" style="font-size:11.5px; padding:4px 9px" onclick="askCopilotIA('¿Cuál es el producto más caro y el más barato del catálogo?')">Precios extremos</button>
+                  <button class="btn-tactical" style="font-size:11.5px; padding:4px 9px" onclick="askCopilotIA('Muéstrame el resumen de todas las facturas registradas')">Ver facturas</button>
+                  <button class="btn-tactical" style="font-size:11.5px; padding:4px 9px" onclick="askCopilotIA('¿Cómo se vincularon los registros de PROD-013 e IAM?')">Explicar vínculos</button>
+                  <button class="btn-tactical" style="font-size:11.5px; padding:4px 9px" onclick="askCopilotIA('¿Cómo está distribuido el inventario por categorías?')">Categorías</button>
                 </div>
 
                 <div class="copilot-box">
@@ -566,7 +566,7 @@
                     </div>
                   </div>
                   <div class="copilot-input-row">
-                    <input type="text" id="copilot-input" class="tactical-input" style="flex:1" placeholder="Escribe cualquier pregunta (ej: ¿Cuánto cuesta la tapa rígida L200?, ¿Qué facturas tiene Lafayette?, ¿Qué comprar?)..." onkeydown="if(event.key==='Enter') askCopilotIA()" />
+                    <input type="text" id="copilot-input" class="tactical-input" style="flex:1; min-width:180px" placeholder="Escribe tu pregunta aquí (ej: ¿Cuánto cuesta la tapa rígida L200?, ¿Qué facturas tiene Lafayette?)..." onkeydown="if(event.key==='Enter') askCopilotIA()" />
                     <button class="btn-tactical primary" onclick="askCopilotIA()">Enviar Consulta</button>
                   </div>
                 </div>
@@ -574,49 +574,49 @@
             </div>
 
             <div class="panel" style="margin-bottom:0; display:flex; flex-direction:column">
-              <div class="panel-header">
-                <div>
-                  <div class="panel-title">Simulador de Ponderación Multicriterio IA &amp; Demanda</div>
-                  <div class="panel-subtitle">Ajusta los pesos del algoritmo para recalcular el Score de Proveedores y el Punto de Reorden</div>
+              <div class="panel-header" style="padding:11px 16px">
+                <div style="min-width:0; flex:1">
+                  <div class="panel-title" style="font-size:15.5px">Simulador de Ponderación Multicriterio IA &amp; Demanda</div>
+                  <div class="panel-subtitle" style="font-size:12.5px">Ajusta los pesos para recalcular el Score de Proveedores y el Punto de Reorden</div>
                 </div>
                 <span class="code-chip">Scoring Dinámico</span>
               </div>
-              <div class="panel-body" style="display:flex; flex-direction:column; justify-content:space-between; flex:1">
+              <div class="panel-body" style="padding:12px 16px; display:flex; flex-direction:column; justify-content:space-between; flex:1">
                 <div class="sliders-grid-2x2">
                   <div class="slider-group" style="margin-bottom:0">
-                    <div class="slider-header">
-                      <span>Peso Calidad de Producto</span>
+                    <div class="slider-header" style="font-size:12.5px">
+                      <span>Calidad Producto</span>
                       <span class="slider-val" id="val-slider-calidad">40%</span>
                     </div>
                     <input type="range" id="slider-calidad" class="tactical-range" min="10" max="70" value="40" onchange="updateIASimulator()" />
                   </div>
 
                   <div class="slider-group" style="margin-bottom:0">
-                    <div class="slider-header">
-                      <span>Peso Cumplimiento de Entregas</span>
+                    <div class="slider-header" style="font-size:12.5px">
+                      <span>Cumplimiento Entregas</span>
                       <span class="slider-val" id="val-slider-cumplimiento">35%</span>
                     </div>
                     <input type="range" id="slider-cumplimiento" class="tactical-range" min="10" max="70" value="35" onchange="updateIASimulator()" />
                   </div>
 
                   <div class="slider-group" style="margin-bottom:0">
-                    <div class="slider-header">
-                      <span>Peso Velocidad / Lead Time</span>
+                    <div class="slider-header" style="font-size:12.5px">
+                      <span>Velocidad / Lead Time</span>
                       <span class="slider-val" id="val-slider-tiempo">25%</span>
                     </div>
                     <input type="range" id="slider-tiempo" class="tactical-range" min="10" max="70" value="25" onchange="updateIASimulator()" />
                   </div>
 
                   <div class="slider-group" style="margin-bottom:0">
-                    <div class="slider-header">
-                      <span>Proyección Variación de Demanda</span>
+                    <div class="slider-header" style="font-size:12.5px">
+                      <span>Variación Demanda</span>
                       <span class="slider-val" id="val-slider-demanda">+0%</span>
                     </div>
                     <input type="range" id="slider-demanda" class="tactical-range" min="-30" max="100" step="5" value="0" onchange="updateIASimulator()" />
                   </div>
                 </div>
 
-                <div style="height:255px; width:100%; margin-top:12px">
+                <div style="height:200px; width:100%; margin-top:8px">
                   <canvas id="chart-supplier-radar"></canvas>
                 </div>
               </div>
