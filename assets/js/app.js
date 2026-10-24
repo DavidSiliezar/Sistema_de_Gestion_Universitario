@@ -1035,6 +1035,8 @@ function renderCharts() {
 
   Chart.defaults.color = textColor;
   Chart.defaults.font.family = "'Times New Roman', Times, serif";
+  Chart.defaults.maintainAspectRatio = false;
+  Chart.defaults.responsive = true;
 
   const ctxLanded = document.getElementById("chart-landed-cost");
   if (ctxLanded) {
@@ -1067,8 +1069,24 @@ function renderCharts() {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        layout: {
+          padding: {
+            top: 6,
+            bottom: 12,
+            left: 6,
+            right: 10,
+          },
+        },
         plugins: {
-          legend: { position: "top", labels: { boxWidth: 12, font: { family: "'Times New Roman', Times, serif", size: 12 } } },
+          legend: {
+            position: "top",
+            labels: {
+              boxWidth: 12,
+              padding: 8,
+              font: { family: "'Times New Roman', Times, serif", size: 11 },
+              color: textColor,
+            },
+          },
           tooltip: {
             titleFont: { family: "'Times New Roman', Times, serif" },
             bodyFont: { family: "'Times New Roman', Times, serif" },
@@ -1081,8 +1099,25 @@ function renderCharts() {
           },
         },
         scales: {
-          x: { grid: { color: gridColor }, ticks: { font: { family: "'Times New Roman', Times, serif" } } },
-          y: { grid: { color: gridColor }, ticks: { font: { family: "'Times New Roman', Times, serif" }, callback: (v) => "$" + v } },
+          x: {
+            grid: { color: gridColor },
+            ticks: {
+              color: textColor,
+              font: { family: "'Times New Roman', Times, serif", size: 11 },
+              maxRotation: 0,
+              minRotation: 0,
+              autoSkip: false,
+              padding: 6,
+            },
+          },
+          y: {
+            grid: { color: gridColor },
+            ticks: {
+              color: textColor,
+              font: { family: "'Times New Roman', Times, serif", size: 11 },
+              callback: (v) => "$" + v,
+            },
+          },
         },
       },
     });
@@ -1118,8 +1153,24 @@ function renderCharts() {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        layout: {
+          padding: {
+            top: 6,
+            bottom: 16,
+            left: 6,
+            right: 10,
+          },
+        },
         plugins: {
-          legend: { position: "top", labels: { boxWidth: 12, font: { family: "'Times New Roman', Times, serif", size: 12 } } },
+          legend: {
+            position: "top",
+            labels: {
+              boxWidth: 12,
+              padding: 8,
+              font: { family: "'Times New Roman', Times, serif", size: 11 },
+              color: textColor,
+            },
+          },
           tooltip: {
             titleFont: { family: "'Times New Roman', Times, serif" },
             bodyFont: { family: "'Times New Roman', Times, serif" },
@@ -1129,8 +1180,24 @@ function renderCharts() {
           },
         },
         scales: {
-          x: { grid: { color: gridColor }, ticks: { font: { family: "'Times New Roman', Times, serif" } } },
-          y: { grid: { color: gridColor }, ticks: { font: { family: "'Times New Roman', Times, serif" } } },
+          x: {
+            grid: { color: gridColor },
+            ticks: {
+              color: textColor,
+              font: { family: "'Times New Roman', Times, serif", size: 10 },
+              maxRotation: 45,
+              minRotation: 20,
+              autoSkip: false,
+              padding: 6,
+            },
+          },
+          y: {
+            grid: { color: gridColor },
+            ticks: {
+              color: textColor,
+              font: { family: "'Times New Roman', Times, serif", size: 11 },
+            },
+          },
         },
       },
     });
@@ -1168,16 +1235,44 @@ function renderCharts() {
         indexAxis: "y",
         responsive: true,
         maintainAspectRatio: false,
+        layout: {
+          padding: {
+            top: 4,
+            bottom: 8,
+            left: 4,
+            right: 10,
+          },
+        },
         plugins: {
-          legend: { position: "top", labels: { boxWidth: 12, font: { family: "'Times New Roman', Times, serif", size: 12 } } },
+          legend: {
+            position: "top",
+            labels: {
+              boxWidth: 12,
+              padding: 6,
+              font: { family: "'Times New Roman', Times, serif", size: 11 },
+              color: textColor,
+            },
+          },
           tooltip: {
             titleFont: { family: "'Times New Roman', Times, serif" },
             bodyFont: { family: "'Times New Roman', Times, serif" },
           },
         },
         scales: {
-          x: { grid: { color: gridColor }, ticks: { font: { family: "'Times New Roman', Times, serif" } } },
-          y: { grid: { color: gridColor }, ticks: { font: { family: "'Times New Roman', Times, serif" } } },
+          x: {
+            grid: { color: gridColor },
+            ticks: {
+              color: textColor,
+              font: { family: "'Times New Roman', Times, serif", size: 11 },
+            },
+          },
+          y: {
+            grid: { color: gridColor },
+            ticks: {
+              color: textColor,
+              font: { family: "'Times New Roman', Times, serif", size: 11 },
+            },
+          },
         },
       },
     });
@@ -2515,10 +2610,15 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  let resizeChartsTimer = null;
   window.addEventListener("resize", () => {
     if (window.innerWidth > 1024) {
       closeMobileSidebar();
     }
+    clearTimeout(resizeChartsTimer);
+    resizeChartsTimer = setTimeout(() => {
+      renderCharts();
+    }, 150);
   });
 
   if (typeof initSqlJs !== "undefined") {
