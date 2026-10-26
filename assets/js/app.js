@@ -2724,7 +2724,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   if (typeof initSqlJs !== "undefined") {
     try {
       AppState.SQL = await initSqlJs({
-        locateFile: (file) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}`,
+        locateFile: (file) => `assets/vendor/${file}`,
       });
       syncInBrowserSqlite();
       document.getElementById("sql-engine-badge").textContent = "SQLite3";
