@@ -311,7 +311,8 @@ export function procesarTresExcelsRelacional(filasProductos, filasProveedores, f
   for (const [idP, prod] of productosMap.entries()) {
     const prov = proveedoresMap.get(prod.id_proveedor_preferido) || Array.from(proveedoresMap.values())[0];
     const demandaMensual = prod.precio_venta < 30 ? 18 : prod.precio_venta < 120 ? 12 : 8;
-    const diasCobertura = Math.floor(prod.existencia / (demandaMensual / 30));
+    const consumoDiario = demandaMensual / 30;
+    const diasCobertura = consumoDiario > 0 ? Math.floor(prod.existencia / consumoDiario) : 30;
 
     let nivelAlerta = "OPTIMO";
     let prioridad = 3;

@@ -13,6 +13,80 @@ function notifyToast(icon, title) {
   Toast.fire({ icon, title });
 }
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function safeNum(val, fallback = 0) {
+  const n = Number(val);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function evaluateMathSafe(expr) {
+  const clean = String(expr).replace(/\s+/g, "");
+  if (!clean || !/^[0-9+*/().-]+$/.test(clean)) return null;
+  let pos = 0;
+  function parsePrimary() {
+    if (clean[pos] === "(") {
+      pos++;
+      const val = parseAddSub();
+      if (clean[pos] === ")") pos++;
+      return val;
+    }
+    if (clean[pos] === "-") {
+      pos++;
+      const p = parsePrimary();
+      return p === null ? null : -p;
+    }
+    if (clean[pos] === "+") {
+      pos++;
+      return parsePrimary();
+    }
+    let numStr = "";
+    while (pos < clean.length && /[0-9.]/.test(clean[pos])) {
+      numStr += clean[pos++];
+    }
+    if (!numStr) return null;
+    const n = Number(numStr);
+    return Number.isFinite(n) ? n : null;
+  }
+  function parseMulDiv() {
+    let val = parsePrimary();
+    if (val === null) return null;
+    while (pos < clean.length && (clean[pos] === "*" || clean[pos] === "/")) {
+      const op = clean[pos++];
+      const nextVal = parsePrimary();
+      if (nextVal === null) return null;
+      if (op === "*") val = val * nextVal;
+      else {
+        if (nextVal === 0) return null;
+        val = val / nextVal;
+      }
+    }
+    return val;
+  }
+  function parseAddSub() {
+    let val = parseMulDiv();
+    if (val === null) return null;
+    while (pos < clean.length && (clean[pos] === "+" || clean[pos] === "-")) {
+      const op = clean[pos++];
+      const nextVal = parseMulDiv();
+      if (nextVal === null) return null;
+      if (op === "+") val = val + nextVal;
+      else val = val - nextVal;
+    }
+    return val;
+  }
+  const result = parseAddSub();
+  return (pos === clean.length && typeof result === "number" && Number.isFinite(result)) ? result : null;
+}
+
 const INITIAL_EXCEL_PRODUCTOS = [
   {
     "ID del producto": "PROD-001",
@@ -873,22 +947,22 @@ function generateFullSqlScript() {
   ];
 
   for (const c of rel.categorias) {
-    lines.push(`INSERT INTO categorias VALUES ('${escapeSql(c.id_categoria)}', '${escapeSql(c.nombre_categoria)}', ${c.stock_minimo_default}, ${c.factor_seguridad});`);
+    lines.push(`INSERT INTO categorias VALUES ('${escapeSql(c.id_categoria)}', '${escapeSql(c.nombre_categoria)}', ${safeNum(c.stock_minimo_default, 8)}, ${safeNum(c.factor_seguridad, 1.5)});`);
   }
   for (const p of rel.proveedores) {
-    lines.push(`INSERT INTO proveedores VALUES (${p.id_proveedor}, '${escapeSql(p.nombre)}', '${escapeSql(p.contacto)}', '${escapeSql(p.nit)}', '${escapeSql(p.correo)}', '${escapeSql(p.direccion)}', '${escapeSql(p.pais_origen)}', '${escapeSql(p.condiciones_pago)}', '${escapeSql(p.fecha_registro)}', ${p.tiempo_entrega_dias}, ${p.calificacion_calidad}, ${p.cumplimiento_entregas_pct}, ${p.score_ia}, '${escapeSql(p.origen_registro)}');`);
+    lines.push(`INSERT INTO proveedores VALUES (${safeNum(p.id_proveedor, 1)}, '${escapeSql(p.nombre)}', '${escapeSql(p.contacto)}', '${escapeSql(p.nit)}', '${escapeSql(p.correo)}', '${escapeSql(p.direccion)}', '${escapeSql(p.pais_origen)}', '${escapeSql(p.condiciones_pago)}', '${escapeSql(p.fecha_registro)}', ${safeNum(p.tiempo_entrega_dias, 15)}, ${safeNum(p.calificacion_calidad, 5)}, ${safeNum(p.cumplimiento_entregas_pct, 100)}, ${safeNum(p.score_ia, 90)}, '${escapeSql(p.origen_registro)}');`);
   }
   for (const pr of rel.productos) {
-    lines.push(`INSERT INTO productos VALUES ('${escapeSql(pr.id_producto)}', '${escapeSql(pr.codigo_sku)}', '${escapeSql(pr.nombre)}', '${escapeSql(pr.descripcion)}', '${escapeSql(pr.id_categoria)}', ${pr.id_proveedor_preferido}, '${escapeSql(pr.marca)}', ${pr.costo_unitario}, ${pr.costo_flete}, ${pr.aranceles_aduanales}, ${pr.impuestos}, ${pr.almacenaje}, ${pr.precio_total_compra}, ${pr.precio_venta}, ${pr.margen_unitario}, ${pr.margen_porcentaje}, ${pr.existencia}, ${pr.stock_minimo}, ${pr.punto_reorden}, '${escapeSql(pr.ubicacion)}', '${escapeSql(pr.estado)}', '${escapeSql(pr.fecha_ingreso)}', '${escapeSql(pr.origen_registro)}');`);
+    lines.push(`INSERT INTO productos VALUES ('${escapeSql(pr.id_producto)}', '${escapeSql(pr.codigo_sku)}', '${escapeSql(pr.nombre)}', '${escapeSql(pr.descripcion)}', '${escapeSql(pr.id_categoria)}', ${safeNum(pr.id_proveedor_preferido, 1)}, '${escapeSql(pr.marca)}', ${safeNum(pr.costo_unitario)}, ${safeNum(pr.costo_flete)}, ${safeNum(pr.aranceles_aduanales)}, ${safeNum(pr.impuestos)}, ${safeNum(pr.almacenaje)}, ${safeNum(pr.precio_total_compra)}, ${safeNum(pr.precio_venta)}, ${safeNum(pr.margen_unitario)}, ${safeNum(pr.margen_porcentaje)}, ${safeNum(pr.existencia)}, ${safeNum(pr.stock_minimo, 8)}, ${safeNum(pr.punto_reorden, 12)}, '${escapeSql(pr.ubicacion)}', '${escapeSql(pr.estado)}', '${escapeSql(pr.fecha_ingreso)}', '${escapeSql(pr.origen_registro)}');`);
   }
   for (const d of rel.documentos_compra) {
-    lines.push(`INSERT INTO documentos_compra VALUES (${d.id_documento}, '${escapeSql(d.numero_factura)}', '${escapeSql(d.fecha)}', '${escapeSql(d.tipo_documento)}', ${d.id_proveedor}, '${escapeSql(d.numero_cotizacion)}', '${escapeSql(d.orden_compra)}', ${d.subtotal_documento}, ${d.iva_documento}, ${d.total_documento});`);
+    lines.push(`INSERT INTO documentos_compra VALUES (${safeNum(d.id_documento, 1)}, '${escapeSql(d.numero_factura)}', '${escapeSql(d.fecha)}', '${escapeSql(d.tipo_documento)}', ${safeNum(d.id_proveedor, 1)}, '${escapeSql(d.numero_cotizacion)}', '${escapeSql(d.orden_compra)}', ${safeNum(d.subtotal_documento)}, ${safeNum(d.iva_documento)}, ${safeNum(d.total_documento)});`);
   }
   for (const det of rel.detalle_compras) {
-    lines.push(`INSERT INTO detalle_compras VALUES (${det.id_detalle}, ${det.id_documento}, '${escapeSql(det.id_producto)}', '${escapeSql(det.descripcion_factura)}', ${det.cantidad}, ${det.precio_unitario}, ${det.iva_13}, ${det.total_linea}, '${escapeSql(det.metodo_vinculacion)}');`);
+    lines.push(`INSERT INTO detalle_compras VALUES (${safeNum(det.id_detalle, 1)}, ${safeNum(det.id_documento, 1)}, '${escapeSql(det.id_producto)}', '${escapeSql(det.descripcion_factura)}', ${safeNum(det.cantidad, 1)}, ${safeNum(det.precio_unitario)}, ${safeNum(det.iva_13)}, ${safeNum(det.total_linea)}, '${escapeSql(det.metodo_vinculacion)}');`);
   }
   for (const r of rel.recomendaciones_ia) {
-    lines.push(`INSERT INTO recomendaciones_ia VALUES (${r.id_recomendacion}, '${escapeSql(r.id_producto)}', ${r.id_proveedor_sugerido}, '${escapeSql(r.nivel_alerta)}', ${r.prioridad}, ${r.existencia_actual}, ${r.stock_minimo}, ${r.punto_reorden}, ${r.dias_cobertura_estimados}, ${r.cantidad_sugerida_compra}, ${r.costo_unitario_estimado}, ${r.inversion_total_sugerida}, ${r.score_proveedor}, '${escapeSql(r.justificacion_ia)}');`);
+    lines.push(`INSERT INTO recomendaciones_ia VALUES (${safeNum(r.id_recomendacion, 1)}, '${escapeSql(r.id_producto)}', ${safeNum(r.id_proveedor_sugerido, 1)}, '${escapeSql(r.nivel_alerta)}', ${safeNum(r.prioridad, 1)}, ${safeNum(r.existencia_actual)}, ${safeNum(r.stock_minimo, 8)}, ${safeNum(r.punto_reorden, 12)}, ${safeNum(r.dias_cobertura_estimados, 30)}, ${safeNum(r.cantidad_sugerida_compra, 0)}, ${safeNum(r.costo_unitario_estimado)}, ${safeNum(r.inversion_total_sugerida)}, ${safeNum(r.score_proveedor)}, '${escapeSql(r.justificacion_ia)}');`);
   }
 
   lines.push("");
@@ -1034,7 +1108,7 @@ function renderCharts() {
   const gridColor = isDark ? "rgba(255,255,255,0.07)" : "rgba(15,23,42,0.07)";
 
   Chart.defaults.color = textColor;
-  Chart.defaults.font.family = "'Times New Roman', Times, serif";
+  Chart.defaults.font.family = "'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
   Chart.defaults.maintainAspectRatio = false;
   Chart.defaults.responsive = true;
 
@@ -1083,13 +1157,13 @@ function renderCharts() {
             labels: {
               boxWidth: 12,
               padding: 8,
-              font: { family: "'Times New Roman', Times, serif", size: 11 },
+              font: { family: "'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", size: 11 },
               color: textColor,
             },
           },
           tooltip: {
-            titleFont: { family: "'Times New Roman', Times, serif" },
-            bodyFont: { family: "'Times New Roman', Times, serif" },
+            titleFont: { family: "'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
+            bodyFont: { family: "'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
             callbacks: {
               afterTitle: (items) => {
                 const idx = items[0].dataIndex;
@@ -1103,7 +1177,7 @@ function renderCharts() {
             grid: { color: gridColor },
             ticks: {
               color: textColor,
-              font: { family: "'Times New Roman', Times, serif", size: 11 },
+              font: { family: "'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", size: 11 },
               maxRotation: 0,
               minRotation: 0,
               autoSkip: false,
@@ -1114,7 +1188,7 @@ function renderCharts() {
             grid: { color: gridColor },
             ticks: {
               color: textColor,
-              font: { family: "'Times New Roman', Times, serif", size: 11 },
+              font: { family: "'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", size: 11 },
               callback: (v) => "$" + v,
             },
           },
@@ -1167,13 +1241,13 @@ function renderCharts() {
             labels: {
               boxWidth: 12,
               padding: 8,
-              font: { family: "'Times New Roman', Times, serif", size: 11 },
+              font: { family: "'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", size: 11 },
               color: textColor,
             },
           },
           tooltip: {
-            titleFont: { family: "'Times New Roman', Times, serif" },
-            bodyFont: { family: "'Times New Roman', Times, serif" },
+            titleFont: { family: "'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
+            bodyFont: { family: "'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
             callbacks: {
               afterTitle: (items) => rel.productos[items[0].dataIndex].nombre,
             },
@@ -1184,7 +1258,7 @@ function renderCharts() {
             grid: { color: gridColor },
             ticks: {
               color: textColor,
-              font: { family: "'Times New Roman', Times, serif", size: 10 },
+              font: { family: "'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", size: 10 },
               maxRotation: 45,
               minRotation: 20,
               autoSkip: false,
@@ -1195,7 +1269,7 @@ function renderCharts() {
             grid: { color: gridColor },
             ticks: {
               color: textColor,
-              font: { family: "'Times New Roman', Times, serif", size: 11 },
+              font: { family: "'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", size: 11 },
             },
           },
         },
@@ -1249,13 +1323,13 @@ function renderCharts() {
             labels: {
               boxWidth: 12,
               padding: 6,
-              font: { family: "'Times New Roman', Times, serif", size: 11 },
+              font: { family: "'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", size: 11 },
               color: textColor,
             },
           },
           tooltip: {
-            titleFont: { family: "'Times New Roman', Times, serif" },
-            bodyFont: { family: "'Times New Roman', Times, serif" },
+            titleFont: { family: "'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
+            bodyFont: { family: "'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
           },
         },
         scales: {
@@ -1263,14 +1337,14 @@ function renderCharts() {
             grid: { color: gridColor },
             ticks: {
               color: textColor,
-              font: { family: "'Times New Roman', Times, serif", size: 11 },
+              font: { family: "'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", size: 11 },
             },
           },
           y: {
             grid: { color: gridColor },
             ticks: {
               color: textColor,
-              font: { family: "'Times New Roman', Times, serif", size: 11 },
+              font: { family: "'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif", size: 11 },
             },
           },
         },
@@ -1639,11 +1713,11 @@ function buildSmartCopilotAnswer(rawQuery) {
       const { columns, values } = res[0];
       const topRows = values.slice(0, 8);
       const preview = topRows
-        .map((row, rIdx) => `<b>${rIdx + 1}.</b> ` + row.map((v, idx) => `<b>${columns[idx]}:</b> ${v === null ? "NULL" : v}`).join(" · "))
+        .map((row, rIdx) => `<b>${rIdx + 1}.</b> ` + row.map((v, idx) => `<b>${escapeHtml(columns[idx])}:</b> ${v === null ? "NULL" : escapeHtml(v)}`).join(" · "))
         .join("<br>");
       return `<b>Resultado SQL en Vivo (${values.length} filas):</b><br>${preview}${values.length > 8 ? `<br><i>...mostrando primeras 8 de ${values.length} filas.</i>` : ""}`;
     } catch (err) {
-      return `<b>Error ejecutando SQL en el chat:</b><br><code>${err.message}</code>`;
+      return `<b>Error ejecutando SQL en el chat:</b><br><code>${escapeHtml(err.message)}</code>`;
     }
   }
 
@@ -1657,13 +1731,11 @@ function buildSmartCopilotAnswer(rawQuery) {
 
   const mathCandidate = qTrim.replace(/^(cuanto es|calcula|calcular|resuelve|resultado de)\s+/i, "").replace(/\$/g, "").trim();
   if (/^[\d\s()+*/.,-]+$/.test(mathCandidate) && /[+*/-]/.test(mathCandidate) && /\d/.test(mathCandidate)) {
-    try {
-      const sanitized = mathCandidate.replace(/,/g, ".");
-      const val = Function(`"use strict"; return (${sanitized});`)();
-      if (typeof val === "number" && Number.isFinite(val)) {
-        return `<b>Calculadora UniControl:</b><br><code>${mathCandidate}</code> = <b>${Number(val.toFixed(4)).toLocaleString("en-US")}</b> (En formato moneda: <b>${formatUSD(val)}</b>).`;
-      }
-    } catch (e) {}
+    const sanitized = mathCandidate.replace(/,/g, ".");
+    const val = evaluateMathSafe(sanitized);
+    if (typeof val === "number" && Number.isFinite(val)) {
+      return `<b>Calculadora UniControl:</b><br><code>${escapeHtml(mathCandidate)}</code> = <b>${Number(val.toFixed(4)).toLocaleString("en-US")}</b> (En formato moneda: <b>${formatUSD(val)}</b>).`;
+    }
   }
 
   const blockMatch = qNorm.match(/\b(?:BLOQUE|PARTE|PAGINA)\s*(\d+)\b/);
@@ -1713,7 +1785,7 @@ function buildSmartCopilotAnswer(rawQuery) {
     qNorm.includes("EXPLICACION GENERAL")
   ) {
     return `<b>Arquitectura Técnica, Backend, Base de Datos y Despliegue de UniControl:</b><br>
-    <b>1. Frontend y UI/UX:</b> Construido con <b>HTML5 Semántico</b> (arquitectura SPA de 6 vistas), <b>CSS3 Custom Properties</b> (CSS Grid/Flexbox, Modo Claro/Oscuro, tipografía global <i>Times New Roman</i>, Sidebar retráctil) y <b>JavaScript ES2023+</b> acompañado de <b>Chart.js 4.4.2</b> (gráficos interactivos), <b>SheetJS 0.18.5</b> (procesamiento y exportación nativa de libros <code>.xlsx</code>) y <b>SweetAlert2</b>.<br>
+    <b>1. Frontend y UI/UX:</b> Construido con <b>HTML5 Semántico</b> (arquitectura SPA de 6 vistas), <b>CSS3 Custom Properties</b> (CSS Grid/Flexbox, Modo Claro/Oscuro, tipografía global moderna Sans-Serif <i>Inter/system-ui</i>, Sidebar retráctil) y <b>JavaScript ES2023+</b> acompañado de <b>Chart.js 4.4.2</b> (gráficos interactivos), <b>SheetJS 0.18.5</b> (procesamiento y exportación nativa de libros <code>.xlsx</code>) y <b>SweetAlert2</b>.<br>
     <b>2. Arquitectura Backend (Controladores y Servicios):</b> Implementa una arquitectura <b>Serverless / Edge-Client MVC</b> en <code>app.js</code> dividida en servicios y controladores modulares:
     <br>&nbsp;&nbsp;• <i>Controlador ETL e Ingesta (<code>buildRelationalDatabase</code>, <code>handleExcelFileUpload</code>):</i> Normaliza los 3 libros Excel y aplica auto-curación referencial (<i>Auto-Healing</i>).
     <br>&nbsp;&nbsp;• <i>Servicio Financiero y Motor IA (<code>calcSupplierScore</code>, <code>updateIASimulator</code>):</i> Calcula costos de importación <i>Landed Cost</i>, evaluación multicriterio de proveedores y punto de reorden (EOQ).
@@ -1916,11 +1988,17 @@ function askCopilotIA(predefinedQuestion = null) {
   if (!predefinedQuestion) input.value = "";
 
   const msgBox = document.getElementById("copilot-messages");
-  msgBox.innerHTML += `<div class="msg-bubble user">${query}</div>`;
+  const userBubble = document.createElement("div");
+  userBubble.className = "msg-bubble user";
+  userBubble.textContent = query;
+  msgBox.appendChild(userBubble);
 
   const answer = buildSmartCopilotAnswer(query);
 
-  msgBox.innerHTML += `<div class="msg-bubble ai">${answer}</div>`;
+  const aiBubble = document.createElement("div");
+  aiBubble.className = "msg-bubble ai";
+  aiBubble.innerHTML = answer;
+  msgBox.appendChild(aiBubble);
   msgBox.scrollTop = msgBox.scrollHeight;
   notifyToast("success", "Asistente IA respondió la consulta");
 }
@@ -2142,11 +2220,13 @@ function confirmAndExecutePurchaseOrder() {
 
 function handleInsertarFacturaVivo(event) {
   event.preventDefault();
-  const numFact = document.getElementById("new-fact-num").value.trim() || `INV-${Math.floor(1000 + Math.random() * 9000)}`;
-  const provNombre = document.getElementById("new-fact-prov").value.trim();
-  const prodNombre = document.getElementById("new-fact-prod").value.trim();
-  const cantidad = Number(document.getElementById("new-fact-cant").value || 5);
-  const precio = Number(document.getElementById("new-fact-precio").value || 45);
+  const numFact = (document.getElementById("new-fact-num")?.value || "").trim() || `INV-${Math.floor(1000 + Math.random() * 9000)}`;
+  const provNombre = (document.getElementById("new-fact-prov")?.value || "").trim();
+  const prodNombre = (document.getElementById("new-fact-prod")?.value || "").trim();
+  const rawCant = Number(document.getElementById("new-fact-cant")?.value);
+  const rawPrecio = Number(document.getElementById("new-fact-precio")?.value);
+  const cantidad = Number.isFinite(rawCant) && rawCant > 0 ? Math.floor(rawCant) : 5;
+  const precio = Number.isFinite(rawPrecio) && rawPrecio >= 0 ? rawPrecio : 45;
 
   const total = Number((cantidad * precio).toFixed(2));
   const iva = Number((total * 0.13).toFixed(2));
@@ -2175,12 +2255,18 @@ function handleInsertarFacturaVivo(event) {
 
 function handleInsertarProductoVivo(event) {
   event.preventDefault();
-  const sku = document.getElementById("new-prod-sku").value.trim();
-  const nombre = document.getElementById("new-prod-nombre").value.trim();
-  const idCat = document.getElementById("new-prod-cat").value;
-  const marca = document.getElementById("new-prod-marca").value.trim() || "HUNTER 4X4";
-  const costoFob = Number(document.getElementById("new-prod-costo").value || 50);
-  const stock = Number(document.getElementById("new-prod-stock").value || 5);
+  const sku = (document.getElementById("new-prod-sku")?.value || "").trim() || `SKU-${Date.now().toString().slice(-4)}`;
+  const nombre = (document.getElementById("new-prod-nombre")?.value || "").trim();
+  if (!nombre) {
+    notifyToast("warning", "Por favor ingresa el nombre del producto");
+    return;
+  }
+  const idCat = document.getElementById("new-prod-cat")?.value || "CAT-ACC";
+  const marca = (document.getElementById("new-prod-marca")?.value || "").trim() || "HUNTER 4X4";
+  const rawCosto = Number(document.getElementById("new-prod-costo")?.value);
+  const rawStock = Number(document.getElementById("new-prod-stock")?.value);
+  const costoFob = Number.isFinite(rawCosto) && rawCosto >= 0 ? rawCosto : 50;
+  const stock = Number.isFinite(rawStock) && rawStock >= 0 ? Math.floor(rawStock) : 5;
 
   const nextNum = AppState.relational.productos.length + 1;
   const newId = `PROD-${String(nextNum).padStart(3, "0")}`;
@@ -2215,6 +2301,11 @@ function handleInsertarProductoVivo(event) {
 
   document.getElementById("new-prod-sku").value = "";
   document.getElementById("new-prod-nombre").value = "";
+
+  buildRelationalDatabase();
+  renderAllViews();
+  notifyToast("success", `Producto ${newId} insertado con categoría ${idCat} en SQLite`);
+}
 
   buildRelationalDatabase();
   renderAllViews();
@@ -2280,10 +2371,18 @@ function loadPresetSql(key) {
   }
 }
 
+let lastSqlExecutionTime = 0;
+
 function executeLiveSql() {
   const editor = document.getElementById("sql-query-editor");
   const sql = (editor?.value || "").trim();
   if (!sql) return;
+
+  const now = performance.now();
+  if (now - lastSqlExecutionTime < 150) {
+    return;
+  }
+  lastSqlExecutionTime = now;
 
   const t0 = performance.now();
   const thead = document.getElementById("sql-result-thead");
@@ -2304,12 +2403,12 @@ function executeLiveSql() {
       }
 
       const { columns, values } = res[0];
-      thead.innerHTML = `<tr>${columns.map((c) => `<th>${c}</th>`).join("")}</tr>`;
+      thead.innerHTML = `<tr>${columns.map((c) => `<th>${escapeHtml(c)}</th>`).join("")}</tr>`;
       tbody.innerHTML = values
         .map(
           (row) =>
             `<tr>${row
-              .map((val) => `<td style="font-family:var(--font-mono)">${val === null ? '<span style="color:var(--text-muted)">NULL</span>' : val}</td>`)
+              .map((val) => `<td style="font-family:var(--font-mono)">${val === null ? '<span style="color:var(--text-muted)">NULL</span>' : escapeHtml(val)}</td>`)
               .join("")}</tr>`
         )
         .join("");
@@ -2319,7 +2418,7 @@ function executeLiveSql() {
       return;
     } catch (err) {
       thead.innerHTML = "<tr><th>Error de Sintaxis o Restricción de relación en SQLite</th></tr>";
-      tbody.innerHTML = `<tr><td style="color:var(--accent-crimson); font-family:var(--font-mono)">${err.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td style="color:var(--accent-crimson); font-family:var(--font-mono)">${escapeHtml(err.message)}</td></tr>`;
       notifyToast("error", "Error en sentencia SQL");
       return;
     }
@@ -2337,9 +2436,9 @@ function executeLiveSql() {
 
   if (rows.length > 0) {
     const cols = Object.keys(rows[0]).slice(0, 9);
-    thead.innerHTML = `<tr>${cols.map((c) => `<th>${c}</th>`).join("")}</tr>`;
+    thead.innerHTML = `<tr>${cols.map((c) => `<th>${escapeHtml(c)}</th>`).join("")}</tr>`;
     tbody.innerHTML = rows
-      .map((r) => `<tr>${cols.map((c) => `<td style="font-family:var(--font-mono)">${r[c]}</td>`).join("")}</tr>`)
+      .map((r) => `<tr>${cols.map((c) => `<td style="font-family:var(--font-mono)">${escapeHtml(r[c])}</td>`).join("")}</tr>`)
       .join("");
     metaEl.textContent = `Motor Relacional · ${rows.length} filas · 0.4 ms`;
     notifyToast("success", `Consulta ejecutada (${rows.length} filas)`);
@@ -2580,10 +2679,16 @@ function toggleTheme() {
   const current = root.getAttribute("data-theme");
   if (current === "dark") {
     root.removeAttribute("data-theme");
-    notifyToast("info", "Modo Claro Académico activado");
+    try {
+      localStorage.setItem("unicontrol_theme", "light");
+    } catch (e) {}
+    notifyToast("info", "Modo Claro activado");
   } else {
     root.setAttribute("data-theme", "dark");
-    notifyToast("info", "Modo Oscuro Universitario activado");
+    try {
+      localStorage.setItem("unicontrol_theme", "dark");
+    } catch (e) {}
+    notifyToast("info", "Modo Oscuro activado");
   }
   renderCharts();
 }
