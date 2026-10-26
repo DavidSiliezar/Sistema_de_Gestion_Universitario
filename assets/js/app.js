@@ -2307,11 +2307,6 @@ function handleInsertarProductoVivo(event) {
   notifyToast("success", `Producto ${newId} insertado con categoría ${idCat} en SQLite`);
 }
 
-  buildRelationalDatabase();
-  renderAllViews();
-  notifyToast("success", `Producto ${newId} insertado con categoría ${idCat} en SQLite`);
-}
-
 const PRESET_SQL_QUERIES = {
   join_relaciones: `SELECT 
   numero_factura AS Factura,

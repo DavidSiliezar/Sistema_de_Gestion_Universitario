@@ -544,13 +544,15 @@ samp,
 }
 
 .view-breadcrumb {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 100px;
+  flex: 1 1 auto;
 }
 
 .status-pill {
@@ -1399,6 +1401,10 @@ input[type="range"].tactical-range::-webkit-slider-thumb {
 }
 
 @media (max-width: 1180px) {
+  .status-pill {
+    display: none;
+  }
+
   .grid-2col,
   .grid-equal {
     grid-template-columns: minmax(0, 1fr);
@@ -1409,6 +1415,21 @@ input[type="range"].tactical-range::-webkit-slider-thumb {
 }
 
 @media (max-width: 1024px) {
+  .topbar {
+    position: sticky;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    padding: 8px 14px;
+    gap: 8px;
+  }
+
+  .topbar-actions .btn-tactical {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
   .main-area,
   .app-shell.sidebar-collapsed .main-area {
     margin-left: 0;
@@ -1437,15 +1458,6 @@ input[type="range"].tactical-range::-webkit-slider-thumb {
 
   .workspace-body {
     padding: 16px 14px 36px;
-  }
-
-  .topbar {
-    position: sticky;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 100;
-    padding: 10px 16px;
   }
 }
 
